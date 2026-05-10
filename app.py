@@ -1,29 +1,22 @@
 """
-Video Game Loading Screen Generator  ·  v3.0
-=============================================
-Faithfully reproduces the cinematic game-menu aesthetic:
-  - Multi-layer golden fire glow on the title
-  - Title split across two lines (small line + massive line)
-  - Center-aligned menu under the title
-  - Pure vignette darkness — no sidebar rectangle
-  - Subtle teal cinematic colour wash
-  - Version number bottom-left
+Video Game Loading Screen Generator  ·  v3.1 – AAA Cinematic Edition
+===================================================================
+New in this version:
+  • Smooth left‑side dark gradient (80% black → transparent) behind menu
+  • Title: bold, 2px letter‑spacing, extreme fire glow
+  • Menu items: outer white glow + better line spacing
+  • Video pipeline: gamma/saturation colour grading, soft vignette, gradient overlay
+  • Robust Google Font download (Cinzel, Bebas Neue, Orbitron) with local fallback
+  • FFmpeg command printed to console for debug
 Run:  streamlit run app.py
 """
 
-import io
-import os
-import subprocess
-import tempfile
-import time
+import io, os, subprocess, sys, tempfile, time, traceback
 from pathlib import Path
 
 import requests
 import streamlit as st
-from PIL import (
-    Image, ImageDraw, ImageFilter,
-    ImageFont, ImageEnhance, ImageChops
-)
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageEnhance, ImageChops
 
 # ══════════════════════════════════════════════════════════════════
 #  PAGE CONFIG
@@ -37,14 +30,12 @@ st.set_page_config(
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Share+Tech+Mono&display=swap');
-
 html, body, [data-testid="stAppViewContainer"] {
     background: #06060e;
     color: #d8d0c0;
     font-family: 'Cinzel', serif;
 }
 [data-testid="stHeader"] { background: transparent; }
-
 h1 {
     font-family: 'Cinzel', serif;
     color: #c8a050;
@@ -52,8 +43,6 @@ h1 {
     text-transform: uppercase;
     text-shadow: 0 0 30px #c8a05066;
 }
-h3 { color: #605850; font-weight: 400; letter-spacing: 0.06em; }
-
 .stButton > button {
     background: linear-gradient(135deg, #c8a050 0%, #7a4a10 100%);
     color: #06060e;
@@ -69,130 +58,113 @@ h3 { color: #605850; font-weight: 400; letter-spacing: 0.06em; }
     transition: opacity 0.2s, box-shadow 0.2s;
 }
 .stButton > button:hover { opacity: 0.85; box-shadow: 0 0 36px #c8a05077; }
-
-.stTextInput > div > div > input,
-.stSelectbox > div > div {
-    background: #0e0c14;
-    border: 1px solid #2a2418;
-    color: #d8d0c0;
-    border-radius: 2px;
-    font-family: 'Share Tech Mono', monospace;
-}
-hr { border-color: #1e1a10; }
-
-.info-box {
-    background: #0e0c14;
-    border-left: 3px solid #c8a050;
-    padding: 0.85rem 1.1rem;
-    border-radius: 2px;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.8rem;
-    color: #706050;
-    margin-bottom: 1.2rem;
-    line-height: 1.8;
-}
-.error-box {
-    background: #140808;
-    border-left: 3px solid #cc3333;
-    padding: 0.8rem 1rem;
-    border-radius: 2px;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 0.78rem;
-    color: #ee8888;
-    white-space: pre-wrap;
-    overflow-x: auto;
-}
 </style>
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════
-#  CONSTANTS
+#  CONSTANTS & DEFAULTS
 # ══════════════════════════════════════════════════════════════════
 CANVAS_W, CANVAS_H = 1280, 720
 FONTS_DIR = Path("fonts_cache")
 FONTS_DIR.mkdir(exist_ok=True)
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
+# ── Google Fonts (raw GitHub URLs, multiple fallbacks) ──
 FONT_STYLES = {
     "Cinzel (RPG / Fantasy)": {
-        "title_url":  "https://github.com/google/fonts/raw/main/ofl/cinzel/static/Cinzel-Bold.ttf",
-        "body_url":   "https://github.com/google/fonts/raw/main/ofl/cinzel/static/Cinzel-Regular.ttf",
+        "title_urls": [
+            "https://github.com/google/fonts/raw/main/ofl/cinzel/static/Cinzel-Bold.ttf",
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/cinzel/static/Cinzel-Bold.ttf",
+        ],
+        "body_urls": [
+            "https://github.com/google/fonts/raw/main/ofl/cinzel/static/Cinzel-Regular.ttf",
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/cinzel/static/Cinzel-Regular.ttf",
+        ],
         "title_file": "Cinzel-Bold.ttf",
         "body_file":  "Cinzel-Regular.ttf",
     },
     "Bebas Neue (Racing / Action)": {
-        "title_url":  "https://github.com/google/fonts/raw/main/ofl/bebasneue/BebasNeue-Regular.ttf",
-        "body_url":   "https://github.com/google/fonts/raw/main/ofl/bebasneue/BebasNeue-Regular.ttf",
+        "title_urls": [
+            "https://github.com/google/fonts/raw/main/ofl/bebasneue/BebasNeue-Regular.ttf",
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/bebasneue/BebasNeue-Regular.ttf",
+        ],
+        "body_urls": [
+            "https://github.com/google/fonts/raw/main/ofl/bebasneue/BebasNeue-Regular.ttf",
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/bebasneue/BebasNeue-Regular.ttf",
+        ],
         "title_file": "BebasNeue-Regular.ttf",
         "body_file":  "BebasNeue-Regular.ttf",
     },
     "Orbitron (Sci-Fi / Cyber)": {
-        "title_url":  "https://github.com/google/fonts/raw/main/ofl/orbitron/Orbitron%5Bwght%5D.ttf",
-        "body_url":   "https://github.com/google/fonts/raw/main/ofl/orbitron/Orbitron%5Bwght%5D.ttf",
+        "title_urls": [
+            "https://github.com/google/fonts/raw/main/ofl/orbitron/Orbitron%5Bwght%5D.ttf",
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/orbitron/Orbitron[wght].ttf",
+        ],
+        "body_urls": [
+            "https://github.com/google/fonts/raw/main/ofl/orbitron/Orbitron%5Bwght%5D.ttf",
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/orbitron/Orbitron[wght].ttf",
+        ],
         "title_file": "Orbitron.ttf",
         "body_file":  "Orbitron.ttf",
     },
 }
 
+# Colour themes — now used by both Pillow and FFmpeg
 COLOR_THEMES = {
-    "Teal Cinematic (Cool)": {
-        "wash": (0, 16, 38), "wash_str": 0.25,
-        "glow_layers": [
-            (100, 220, 255, 28, 220),
-            ( 20, 140, 210, 18, 160),
-            (  0,  60, 140, 10, 100),
-        ],
-        "title_color": (210, 240, 255),
-        "menu_color":  (180, 210, 235),
+    "Teal Cinematic (AAA Cool)": {
+        "wash": (0, 22, 42), "wash_str": 0.28,
+        "glow_layers": [(120,210,255,28,200), (20,130,210,18,140), (0,50,130,10,90)],
+        "title_color": (220,245,255),
+        "menu_color":  (190,215,230),
+        "menu_glow": (200,230,255),
     },
-    "Amber (Warm / Classic)": {
-        "wash": (40, 18, 0), "wash_str": 0.28,
-        "glow_layers": [
-            (255, 200,  60, 28, 220),   # bright yellow core
-            (255, 140,  20, 18, 160),   # orange mid
-            (180,  60,   0, 10, 100),   # deep red outer
-        ],
-        "title_color": (255, 245, 210),
-        "menu_color":  (230, 215, 185),
+    "Amber Warm (Classic Fantasy)": {
+        "wash": (45,18,0), "wash_str": 0.28,
+        "glow_layers": [(255,200,60,28,220), (255,140,20,18,160), (180,60,0,10,100)],
+        "title_color": (255,245,210),
+        "menu_color":  (230,215,185),
+        "menu_glow": (255,230,140),
     },
-    "Crimson Dark": {
-        "wash": (42, 0, 0), "wash_str": 0.26,
-        "glow_layers": [
-            (255, 100,  60, 28, 220),
-            (200,  30,  10, 18, 160),
-            (120,   0,   0, 10, 100),
-        ],
-        "title_color": (255, 220, 210),
-        "menu_color":  (230, 190, 180),
+    "Crimson Dark (Brutal)": {
+        "wash": (42,0,0), "wash_str": 0.26,
+        "glow_layers": [(255,100,60,28,220), (200,30,10,18,160), (120,0,0,10,100)],
+        "title_color": (255,220,210),
+        "menu_color":  (230,190,180),
+        "menu_glow": (255,100,60),
     },
-    "Void Purple": {
-        "wash": (18, 0, 38), "wash_str": 0.26,
-        "glow_layers": [
-            (200, 130, 255, 28, 220),
-            (140,  50, 220, 18, 160),
-            ( 60,   0, 140, 10, 100),
-        ],
-        "title_color": (230, 210, 255),
-        "menu_color":  (200, 185, 235),
+    "Void Purple (Mysterious)": {
+        "wash": (18,0,38), "wash_str": 0.26,
+        "glow_layers": [(200,130,255,28,220), (140,50,220,18,160), (60,0,140,10,100)],
+        "title_color": (230,210,255),
+        "menu_color":  (200,185,235),
+        "menu_glow": (210,140,255),
     },
 }
 
+# ── Layout settings ──────────────────────────────────────────────
+TEXT_CX   = 135          # horizontal center of the menu block (left quarter)
+GRADIENT_W = 380         # width of the left‑side dark gradient
+MENU_ROW_H = 52          # line height for menu items
+MENU_GLOW_BLUR = 5       # radius of outer glow on menu text
+
 # ══════════════════════════════════════════════════════════════════
-#  FONT MANAGEMENT
+#  FONT MANAGEMENT (cache_resource – persists across sessions)
 # ══════════════════════════════════════════════════════════════════
 @st.cache_resource(show_spinner=False)
-def download_font(url: str, filename: str) -> Path | None:
+def download_font(urls: list[str], filename: str) -> Path | None:
     dest = FONTS_DIR / filename
     if dest.exists():
         return dest
-    try:
-        r = requests.get(url, timeout=20)
-        r.raise_for_status()
-        dest.write_bytes(r.content)
-        return dest
-    except Exception as e:
-        st.warning(f"Font download failed ({filename}): {e}")
-        return None
+    for url in urls:
+        try:
+            r = requests.get(url, timeout=15)
+            r.raise_for_status()
+            dest.write_bytes(r.content)
+            print(f"Font downloaded: {filename}")
+            return dest
+        except Exception:
+            continue
+    return None
 
 
 def pil_font(path: Path | None, size: int) -> ImageFont.FreeTypeFont:
@@ -204,18 +176,8 @@ def pil_font(path: Path | None, size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.load_default()
 
 
-# ══════════════════════════════════════════════════════════════════
-#  SYSTEM / FFMPEG HELPERS
-# ══════════════════════════════════════════════════════════════════
-def check_ffmpeg() -> bool:
-    try:
-        subprocess.run(["ffmpeg", "-version"], capture_output=True, timeout=5, check=True)
-        return True
-    except Exception:
-        return False
-
-
 def find_system_font() -> str | None:
+    """Return path to an available system font (truetype)."""
     for p in [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/dejavu/DejaVuSans.ttf",
@@ -236,7 +198,18 @@ def find_system_font() -> str | None:
 
 
 # ══════════════════════════════════════════════════════════════════
-#  PILLOW CORE EFFECTS
+#  FFMPEG CHECK
+# ══════════════════════════════════════════════════════════════════
+def check_ffmpeg() -> bool:
+    try:
+        subprocess.run(["ffmpeg", "-version"], capture_output=True, timeout=5, check=True)
+        return True
+    except Exception:
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════
+#  PILLOW EFFECTS
 # ══════════════════════════════════════════════════════════════════
 
 def apply_color_wash(img: Image.Image, rgb: tuple, strength: float) -> Image.Image:
@@ -245,98 +218,223 @@ def apply_color_wash(img: Image.Image, rgb: tuple, strength: float) -> Image.Ima
 
 
 def apply_vignette(img: Image.Image, strength: float = 2.0) -> Image.Image:
-    """Strong radial vignette — darkness from edges, not a sidebar."""
+    """Soft radial vignette – darkens edges, leaves centre unaffected."""
     w, h = img.size
-    vig = Image.new("L", (w, h), 0)
-    d = ImageDraw.Draw(vig)
+    mask = Image.new("L", (w, h), 0)
+    draw = ImageDraw.Draw(mask)
     cx, cy = w // 2, h // 2
-    steps = 180
-    for i in range(steps, 0, -1):
-        ratio = i / steps
+    for i in range(180, 0, -1):
+        ratio = i / 180
         alpha = int(255 * (1 - ratio) ** strength)
-        rx = int(cx * ratio * 1.1)
-        ry = int(cy * ratio * 1.1)
-        d.ellipse([cx - rx, cy - ry, cx + rx, cy + ry], fill=alpha)
-    vig = vig.filter(ImageFilter.GaussianBlur(70))
+        rx = int(cx * ratio * 1.2)
+        ry = int(cy * ratio * 1.2)
+        draw.ellipse([cx - rx, cy - ry, cx + rx, cy + ry], fill=alpha)
+    mask = mask.filter(ImageFilter.GaussianBlur(60))
     dark = Image.new("RGB", (w, h), (0, 0, 0))
     img = img.convert("RGB")
-    img.paste(dark, mask=ImageChops.invert(vig))
+    img.paste(dark, mask=ImageChops.invert(mask))
     return img
+
+
+def draw_left_gradient(img: Image.Image) -> Image.Image:
+    """
+    Overlay a left‑to‑right gradient: black@0.8 -> fully transparent.
+    Width GRADIENT_W px. Creates a cinematic dark zone behind the menu.
+    """
+    grad = Image.new("RGBA", (img.width, img.height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(grad)
+    for x in range(GRADIENT_W):
+        alpha = int(204 * (1 - x / GRADIENT_W))   # 80% black at left edge
+        draw.line([(x, 0), (x, img.height)], fill=(0, 0, 0, alpha))
+    # Blend onto RGB image
+    out = img.convert("RGBA")
+    out.alpha_composite(grad)
+    return out.convert("RGB")
+
+
+def draw_text_with_spacing(
+    draw: ImageDraw.Draw | Image.Image,
+    text: str,
+    x: int,
+    y: int,
+    font,
+    fill,
+    spacing: int = 2,
+) -> tuple[int, int]:
+    """
+    Draw text character by character, increasing x by char-width + spacing.
+    Returns (text_width, bottom_y) of the whole string.
+    Works on any drawable (ImageDraw or Image).
+    Is slow but only used for the main title.
+    """
+    if not text:
+        return 0, y
+    # Determine total width including spacing
+    total_w = 0
+    heights = []
+    im = Image.new("L", (1, 1))   # dummy to get character bboxes
+    dummy_draw = ImageDraw.Draw(im)
+    for ch in text:
+        bbox = dummy_draw.textbbox((0, 0), ch, font=font)
+        w = bbox[2] - bbox[0]
+        h = bbox[3] - bbox[1]
+        total_w += w + spacing
+        heights.append(h)
+    total_w -= spacing   # remove trailing spacing
+    # Start drawing
+    from PIL import ImageFont as IF
+    base_x = x
+    max_bottom = y + max(heights) if heights else y
+    for ch, h in zip(text, heights):
+        draw.text((base_x, y), ch, font=font, fill=fill)
+        bbox = draw.textbbox((base_x, y), ch, font=font)
+        base_x = bbox[2] + spacing
+    return total_w, max_bottom
 
 
 def draw_fire_glow_text(
     img: Image.Image,
     text: str,
-    cx: int,          # horizontal center x of the text block
-    y: int,           # top-y of the text
-    font: ImageFont.FreeTypeFont,
+    cx: int,
+    y: int,
+    font,
     text_color: tuple,
-    glow_layers: list,  # list of (r, g, b, blur_radius, alpha)
+    glow_layers: list[tuple[int,int,int,int,int]],
+    letter_spacing: int = 0,
 ) -> tuple[Image.Image, int]:
     """
-    Draw text centered on cx, at y.
+    Draw title text centred at cx, with multi‑pass fire glow and drop shadow.
     Returns (updated_img, bottom_y_of_text).
+    Optional letter_spacing in pixels.
     """
+    # Calculate size of the whole string (with spacing)
     dummy = ImageDraw.Draw(img)
-    bbox  = dummy.textbbox((0, 0), text, font=font)
-    tw    = bbox[2] - bbox[0]
-    th    = bbox[3] - bbox[1]
-    tx    = cx - tw // 2
+    if letter_spacing:
+        # measure using our spacing function
+        w_total, h_total = _measure_spaced_text(text, font, letter_spacing)
+    else:
+        bbox = dummy.textbbox((0, 0), text, font=font)
+        w_total = bbox[2] - bbox[0]
+        h_total = bbox[3] - bbox[1]
+
+    tx = cx - w_total // 2
 
     base = img.convert("RGBA")
 
-    # Layer glow from outermost to innermost
+    # 1. Glow layers (innermost last)
     for (gr, gg, gb, blur, alpha_max) in reversed(glow_layers):
         glow = Image.new("RGBA", base.size, (0, 0, 0, 0))
-        gd   = ImageDraw.Draw(glow)
-        for ox in (-1, 0, 1):
-            for oy in (-1, 0, 1):
-                gd.text((tx + ox, y + oy), text, font=font,
-                        fill=(gr, gg, gb, alpha_max))
+        gd = ImageDraw.Draw(glow)
+        if letter_spacing:
+            draw_text_with_spacing(gd, text, tx, y, font,
+                                   fill=(gr, gg, gb, alpha_max),
+                                   spacing=letter_spacing)
+        else:
+            gd.text((tx, y), text, font=font, fill=(gr, gg, gb, alpha_max))
         glow = glow.filter(ImageFilter.GaussianBlur(blur))
         base.alpha_composite(glow)
 
-    # Drop shadow
-    shadow_layer = Image.new("RGBA", base.size, (0, 0, 0, 0))
-    sd = ImageDraw.Draw(shadow_layer)
-    sd.text((tx + 4, y + 4), text, font=font, fill=(0, 0, 0, 180))
-    shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(4))
-    base.alpha_composite(shadow_layer)
+    # 2. Drop shadow
+    shadow = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shadow)
+    if letter_spacing:
+        draw_text_with_spacing(sd, text, tx + 4, y + 4, font,
+                               fill=(0, 0, 0, 160), spacing=letter_spacing)
+    else:
+        sd.text((tx + 4, y + 4), text, font=font, fill=(0, 0, 0, 160))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(4))
+    base.alpha_composite(shadow)
 
-    # Crisp main text on top
+    # 3. Sharp main text
     td = ImageDraw.Draw(base)
-    td.text((tx, y), text, font=font, fill=(*text_color, 255))
+    if letter_spacing:
+        draw_text_with_spacing(td, text, tx, y, font,
+                               fill=(*text_color, 255), spacing=letter_spacing)
+    else:
+        td.text((tx, y), text, font=font, fill=(*text_color, 255))
+
+    return base.convert("RGB"), y + h_total
+
+
+def _measure_spaced_text(text: str, font, spacing: int) -> tuple[int, int]:
+    """Helper: return total width and height of spaced text."""
+    dummy = ImageDraw.Draw(Image.new("L", (1,1)))
+    w_total = 0
+    max_h = 0
+    for ch in text:
+        bbox = dummy.textbbox((0, 0), ch, font=font)
+        w_total += (bbox[2] - bbox[0]) + spacing
+        max_h = max(max_h, bbox[3] - bbox[1])
+    w_total -= spacing
+    return w_total, max_h
+
+
+def draw_menu_item_with_glow(
+    img: Image.Image,
+    text: str,
+    cx: int,
+    y: int,
+    font,
+    color: tuple,
+    glow_color: tuple,
+) -> int:
+    """
+    Draw a single menu item centred at cx, with a subtle outer glow.
+    Returns bottom y of the text.
+    """
+    # Measure
+    draw = ImageDraw.Draw(img)
+    bbox = draw.textbbox((0, 0), text, font=font)
+    tw = bbox[2] - bbox[0]
+    th = bbox[3] - bbox[1]
+    tx = cx - tw // 2
+
+    base = img.convert("RGBA")
+
+    # Glow layer (white/blur)
+    glow_img = Image.new("RGBA", base.size, (0,0,0,0))
+    gd = ImageDraw.Draw(glow_img)
+    gd.text((tx, y), text, font=font, fill=(*glow_color, 90))
+    glow_img = glow_img.filter(ImageFilter.GaussianBlur(MENU_GLOW_BLUR))
+    base.alpha_composite(glow_img)
+
+    # Drop shadow
+    shadow = Image.new("RGBA", base.size, (0,0,0,0))
+    sd = ImageDraw.Draw(shadow)
+    sd.text((tx+2, y+2), text, font=font, fill=(0,0,0,160))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(3))
+    base.alpha_composite(shadow)
+
+    # Main text
+    main_draw = ImageDraw.Draw(base)
+    main_draw.text((tx, y), text, font=font, fill=(*color, 255))
 
     return base.convert("RGB"), y + th
 
 
-def draw_centered_text_plain(
+def draw_plain_text_centered(
     draw: ImageDraw.Draw,
     text: str,
     cx: int,
     y: int,
-    font: ImageFont.FreeTypeFont,
+    font,
     color: tuple,
-    shadow_color: tuple = (0, 0, 0),
-    shadow_offset: int = 2,
+    shadow=True,
 ) -> int:
-    """Draw center-aligned plain text with drop shadow. Returns bottom y."""
+    """Simpler centred text (used for subtitle / version)."""
     bbox = draw.textbbox((0, 0), text, font=font)
-    tw   = bbox[2] - bbox[0]
-    th   = bbox[3] - bbox[1]
-    tx   = cx - tw // 2
-    # Shadow
-    draw.text((tx + shadow_offset, y + shadow_offset),
-              text, font=font, fill=(*shadow_color, 160))
-    # Text
+    tw = bbox[2] - bbox[0]
+    th = bbox[3] - bbox[1]
+    tx = cx - tw // 2
+    if shadow:
+        draw.text((tx+2, y+2), text, font=font, fill=(0,0,0,140))
     draw.text((tx, y), text, font=font, fill=color)
     return y + th
 
 
 # ══════════════════════════════════════════════════════════════════
-#  IMAGE PIPELINE  (Pillow — updated for better centering & spacing)
+#  IMAGE PIPELINE  (Pillow)
 # ══════════════════════════════════════════════════════════════════
-
 def process_image(
     raw_bytes: bytes,
     main_title: str,
@@ -345,9 +443,8 @@ def process_image(
     theme: dict,
     version_str: str = "v 20.26",
 ) -> bytes:
-
-    # ── 1. Open & fill canvas ────────────────────────────────────
     src = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
+    # Fill canvas → cover (centre crop)
     src_ratio = src.width / src.height
     tgt_ratio = CANVAS_W / CANVAS_H
     if src_ratio > tgt_ratio:
@@ -361,100 +458,108 @@ def process_image(
     top  = (new_h - CANVAS_H) // 2
     img  = src.crop((left, top, left + CANVAS_W, top + CANVAS_H))
 
-    # ── 2. Colour grading ─────────────────────────────────────────
-    img = ImageEnhance.Brightness(img).enhance(0.72)
-    img = ImageEnhance.Contrast(img).enhance(1.30)
-    img = ImageEnhance.Color(img).enhance(0.70)
+    # 1. Base colour grade (soft)
+    enh = ImageEnhance.Brightness(img).enhance(0.80)
+    enh = ImageEnhance.Contrast(enh).enhance(1.18)
+    enh = ImageEnhance.Color(enh).enhance(0.85)
+    img = enh
 
-    # ── 3. Colour wash (teal/blue subtle tint by default) ─────────
+    # 2. Colour wash
     img = apply_color_wash(img, theme["wash"], theme["wash_str"])
 
-    # ── 4. Strong vignette (natural darkness) ─────────────────────
-    img = apply_vignette(img, strength=2.2)
+    # 3. Vignette
+    img = apply_vignette(img, strength=2.0)
 
-    # ── 5. Load fonts ─────────────────────────────────────────────
-    tf = download_font(font_style["title_url"], font_style["title_file"])
-    bf = download_font(font_style["body_url"],  font_style["body_file"])
+    # 4. Left‑side cinematic gradient
+    img = draw_left_gradient(img)
 
-    f_title_big  = pil_font(tf, 110)
-    f_title_sm   = pil_font(tf,  54)
-    f_menu       = pil_font(bf,  30)
-    f_version    = pil_font(bf,  18)
+    # 5. Load fonts
+    tf = download_font(font_style["title_urls"], font_style["title_file"])
+    bf = download_font(font_style["body_urls"],  font_style["body_file"])
+
+    f_title_big = pil_font(tf, 108)
+    f_title_sm  = pil_font(tf, 52)
+    f_menu      = pil_font(bf, 30)
+    f_sub       = pil_font(bf, 22)
+    f_version   = pil_font(bf, 18)
 
     glow_layers  = theme["glow_layers"]
     title_color  = theme["title_color"]
     menu_color   = theme["menu_color"]
+    menu_glow    = theme.get("menu_glow", (200,200,200))
 
-    # ── 6. Title block — centered at left quarter ──────────────────
-    TEXT_CX = 195          # horizontal center of the menu/title block
-    # Adjusted vertical start for better overall centering
-    title_y  = 280
-
+    # 6. Build title block – last word huge, rest small
     words = main_title.upper().split()
-    if len(words) >= 2:
-        top_line = " ".join(words[:-1])
-        bot_line = words[-1]
-    else:
-        top_line = ""
-        bot_line = main_title.upper()
+    top_line = " ".join(words[:-1]) if len(words) > 1 else ""
+    bot_line = words[-1] if words else "UNTITLED"
 
+    # Starting position (vertical)
+    title_y = 210
+
+    # Small top line (with letter spacing + fire glow)
     if top_line:
         img, after_top = draw_fire_glow_text(
             img, top_line, TEXT_CX, title_y,
-            f_title_sm, title_color, glow_layers
+            f_title_sm, title_color, glow_layers,
+            letter_spacing=2
         )
-        title_y = after_top + 2
+        title_y = after_top + 8
     else:
         after_top = title_y
 
+    # Big bottom line (with letter spacing + fire glow)
     img, after_big = draw_fire_glow_text(
         img, bot_line, TEXT_CX, title_y,
-        f_title_big, title_color, glow_layers
+        f_title_big, title_color, glow_layers,
+        letter_spacing=2
     )
 
-    # ── 7. Menu items — centered under title, with selection arrow ─
-    menu_items = [
-        "> New Game",          # arrow added
-        "Continue",
-        "Select Chapter",
-        "Options",
-        "Exit"
-    ]
-    menu_start = after_big + 32
-    row_h      = 50            # more spacing
+    # 7. Menu items – clean centred list with outer glow
+    menu_items = ["> New Game", "Continue", "Select Chapter", "Options", "Exit"]
+    menu_start_y = after_big + 36
 
-    draw = ImageDraw.Draw(img)
-    for i, item in enumerate(menu_items):
-        my = menu_start + i * row_h
-        draw_centered_text_plain(
-            draw, item, TEXT_CX, my,
-            f_menu, menu_color,
-            shadow_color=(0, 0, 0),
-            shadow_offset=2,
-        )
+    # We'll draw on an RGBA version to composite glows
+    img_rgba = img.convert("RGBA")
+    draw_plain = ImageDraw.Draw(img_rgba)   # used for final plain layer
+    for idx, item in enumerate(menu_items):
+        my = menu_start_y + idx * MENU_ROW_H
+        # Draw glow effect (uses its own compositing)
+        glow_img = Image.new("RGBA", img_rgba.size, (0,0,0,0))
+        gd = ImageDraw.Draw(glow_img)
+        # Calculate x for glow
+        bbox = gd.textbbox((0,0), item, font=f_menu)
+        tw = bbox[2] - bbox[0]
+        tx = TEXT_CX - tw // 2
+        gd.text((tx, my), item, font=f_menu, fill=(*menu_glow, 80))
+        glow_img = glow_img.filter(ImageFilter.GaussianBlur(MENU_GLOW_BLUR))
+        img_rgba.alpha_composite(glow_img)
+        # Drop shadow + main text
+        sd = ImageDraw.Draw(img_rgba)
+        sd.text((tx+2, my+2), item, font=f_menu, fill=(0,0,0,160))
+        sd.text((tx, my), item, font=f_menu, fill=(*menu_color, 255))
+    img = img_rgba.convert("RGB")   # collapse to RGB for rest
 
-    # ── 8. Subtitle (optional) ────────────────────────────────────
+    # 8. Subtitle
     if subtitle.strip():
-        sub_y = menu_start + len(menu_items) * row_h + 14
-        draw_centered_text_plain(
-            draw, subtitle, TEXT_CX, sub_y,
-            pil_font(bf, 22), (160, 150, 130),
-        )
+        sub_y = menu_start_y + len(menu_items) * MENU_ROW_H + 20
+        draw = ImageDraw.Draw(img)
+        draw_plain_text_centered(draw, subtitle, TEXT_CX, sub_y,
+                                 f_sub, (160,150,140))
 
-    # ── 9. Version number — bottom left ───────────────────────────
-    draw.text((36, CANVAS_H - 38), version_str, font=f_version,
-              fill=(130, 120, 100))
+    # 9. Version bottom‑left
+    draw = ImageDraw.Draw(img)
+    draw.text((42, CANVAS_H - 45), version_str, font=f_version,
+              fill=(120,110,100))
 
-    # ── 10. Export PNG ────────────────────────────────────────────
-    buf = io.BytesIO()
-    img.save(buf, format="PNG", optimize=True)
-    return buf.getvalue()
+    # 10. Export PNG
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG", optimize=True)
+    return buffer.getvalue()
 
 
 # ══════════════════════════════════════════════════════════════════
-#  VIDEO PIPELINE  (FFmpeg — aligned with Pillow layout)
+#  VIDEO PIPELINE  (FFmpeg)
 # ══════════════════════════════════════════════════════════════════
-
 def build_ffmpeg_command(
     input_path: str,
     output_path: str,
@@ -466,83 +571,113 @@ def build_ffmpeg_command(
 ) -> list[str]:
 
     def esc(s: str) -> str:
-        return (s.replace("\\", "\\\\")
-                  .replace(":", "\\:")
-                  .replace("'", "\\'")
-                  .replace("%", "\\%"))
+        return s.replace("\\","\\\\").replace(":","\\:").replace("'","\\'").replace("%","\\%")
 
-    words    = main_title.upper().split()
-    top_line = esc(" ".join(words[:-1])) if len(words) >= 2 else ""
-    bot_line = esc(words[-1] if words else "UNTITLED")
-    shd      = "shadowcolor=black@0.80:shadowx=3:shadowy=3"
+    words      = main_title.upper().split()
+    top_line   = esc(" ".join(words[:-1])) if len(words) > 1 else ""
+    bot_line   = esc(words[-1] if words else "UNTITLED")
+    sub_esc    = esc(subtitle.strip())
+    ver_esc    = esc(version_str)
 
-    # Colour wash & vignette (from theme)
+    # ── Color grading parameters (soft gamma + saturation) ──────
+    # Instead of harsh eq, we use gamma and saturation gently.
+    # The wash is already applied via geq.
+    grade = "eq=gamma=1.10:saturation=1.15"
+
+    # ── Wash (tint) ──────────────────────────────────────────────
     wr, wg, wb = [round(c * theme["wash_str"]) for c in theme["wash"]]
     geq = (
         f"geq="
-        f"r='clip(r(X\\,Y)*0.72+{wr}\\,0\\,255)':"
-        f"g='clip(g(X\\,Y)*0.72+{wg}\\,0\\,255)':"
-        f"b='clip(b(X\\,Y)*0.72+{wb}\\,0\\,255)'"
+        f"r='clip(r(X\\,Y)*0.80+{wr}\\,0\\,255)':"
+        f"g='clip(g(X\\,Y)*0.80+{wg}\\,0\\,255)':"
+        f"b='clip(b(X\\,Y)*0.80+{wb}\\,0\\,255)'"
     )
 
-    # Menu items with arrow
-    menu_items = [
-        "> New Game",
-        "Continue",
-        "Select Chapter",
-        "Options",
-        "Exit"
-    ]
-    TEXT_CX = 195                # pixel position (align with Pillow)
-    TITLE_Y = 280
-    ROW_H   = 50
-    MENU_Y0 = 490                # approximate after big title
+    # ── Left gradient overlay (dark fade) ────────────────────────
+    # Darken left 35% of the frame: factor = 0.2 + 0.8*(x/(W*0.35))
+    grad_geq = (
+        f"geq="
+        f"r='r(X\\,Y)*(0.2+0.8*clip(X/(W*0.35)\\,0\\,1))':"
+        f"g='g(X\\,Y)*(0.2+0.8*clip(X/(W*0.35)\\,0\\,1))':"
+        f"b='b(X\\,Y)*(0.2+0.8*clip(X/(W*0.35)\\,0\\,1))'"
+    )
 
+    # ── Soft vignette ────────────────────────────────────────────
+    vignette_effect = "vignette=PI/2.4:mode=backward"
+
+    # ── Menu items ───────────────────────────────────────────────
+    menu_items = ["> New Game", "Continue", "Select Chapter", "Options", "Exit"]
+    menu_y0   = 470   # approximate start after big title (will be adjusted)
+    row_h     = 52
+    shd       = "shadowcolor=black@0.85:shadowx=3:shadowy=3"
+
+    # Title positions (approximate same as Pillow)
+    title_y = 230
+    # Build filter chain
     vf_parts = [
+        # 1. Cover scale
         "scale=1280:720:force_original_aspect_ratio=increase",
         "crop=1280:720",
-        "eq=brightness=-0.28:contrast=1.30:saturation=0.70",
+        # 2. Soft grade
+        grade,
+        # 3. Colour wash
         geq,
-        "vignette=PI/2.2:mode=backward",
-        "noise=alls=6:allf=t+u",
+        # 4. Left gradient (darken left side)
+        grad_geq,
+        # 5. Vignette
+        vignette_effect,
+        # 6. Add subtle grain
+        "noise=alls=5:allf=t+u",
     ]
 
-    # Fire glow illusion (three passes)
-    for blur_r, alpha in [(14, "0.55"), (8, "0.40"), (0, "1.00")]:
-        fc = "white" if blur_r == 0 else f"#ffcc44@{alpha}"
+    # Title with fire glow (three passes)
+    for blur_r, alpha in [(16, "0.60"), (10, "0.45"), (0, "1.00")]:
+        fc = f"#ffd060@{alpha}" if blur_r == 0 else "white"
+        # Top line
         if top_line:
             vf_parts.append(
                 f"drawtext=fontfile='{font_path}':text='{top_line}'"
-                f":fontcolor={fc}:fontsize=54:x={TEXT_CX}-tw/2:y={TITLE_Y}"
-                f":shadowcolor=black@0.80:shadowx={blur_r}:shadowy={blur_r}"
+                f":fontcolor={fc}:fontsize=52:x={TEXT_CX}-tw/2:y={title_y}"
+                f":shadowcolor=black@0.8:shadowx={blur_r}:shadowy={blur_r}"
             )
+        # Bottom line
         vf_parts.append(
             f"drawtext=fontfile='{font_path}':text='{bot_line}'"
-            f":fontcolor={fc}:fontsize=110:x={TEXT_CX}-tw/2:y={TITLE_Y + (58 if top_line else 0)}"
-            f":shadowcolor=black@0.80:shadowx={blur_r}:shadowy={blur_r}"
+            f":fontcolor={fc}:fontsize=108:x={TEXT_CX}-tw/2:y={title_y + (56 if top_line else 0)}"
+            f":shadowcolor=black@0.8:shadowx={blur_r}:shadowy={blur_r}"
         )
 
-    # Menu items
+    # Menu items (with glow? We can't easily do blurred glow via FFmpeg in a simple way,
+    # but we can simulate a faint white shadow to mimic glow)
     for i, item in enumerate(menu_items):
-        my = MENU_Y0 + i * ROW_H
+        my = menu_y0 + i * row_h
+        # Draw white "glow" shadow (slightly blurred) and then main text
         vf_parts.append(
             f"drawtext=fontfile='{font_path}':text='{esc(item)}'"
-            f":fontcolor=white@0.88:fontsize=30:x={TEXT_CX}-tw/2:y={my}:{shd}"
+            f":fontcolor=white@0.5:fontsize=30:x={TEXT_CX}-tw/2:y={my}"
+            f":shadowcolor=white@0.3:shadowx=3:shadowy=3"
         )
-
-    if subtitle.strip():
-        sub_y = MENU_Y0 + len(menu_items) * ROW_H + 14
+        # Main text
         vf_parts.append(
-            f"drawtext=fontfile='{font_path}':text='{esc(subtitle)}'"
-            f":fontcolor=white@0.60:fontsize=22:x={TEXT_CX}-tw/2:y={sub_y}:{shd}"
+            f"drawtext=fontfile='{font_path}':text='{esc(item)}'"
+            f":fontcolor=white@0.9:fontsize=30:x={TEXT_CX}-tw/2:y={my}:{shd}"
         )
 
+    # Subtitle
+    if sub_esc:
+        sub_y = menu_y0 + len(menu_items)*row_h + 20
+        vf_parts.append(
+            f"drawtext=fontfile='{font_path}':text='{sub_esc}'"
+            f":fontcolor=white@0.6:fontsize=22:x={TEXT_CX}-tw/2:y={sub_y}:{shd}"
+        )
+
+    # Version
     vf_parts.append(
-        f"drawtext=fontfile='{font_path}':text='{esc(version_str)}'"
-        f":fontcolor=white@0.45:fontsize=18:x=36:y=h-38:{shd}"
+        f"drawtext=fontfile='{font_path}':text='{ver_esc}'"
+        f":fontcolor=white@0.45:fontsize=18:x=42:y=h-45:{shd}"
     )
 
-    return [
+    full_command = [
         "ffmpeg", "-y",
         "-t", "10",
         "-i", input_path,
@@ -555,19 +690,19 @@ def build_ffmpeg_command(
         "-movflags", "+faststart",
         output_path,
     ]
+    return full_command
 
 
 # ══════════════════════════════════════════════════════════════════
 #  STREAMLIT UI
 # ══════════════════════════════════════════════════════════════════
 st.markdown("# ⚔ Game Loading Screen Generator")
-st.markdown("### Cinematic vignette · Fire glow · Centered menu · Teal wash")
+st.markdown("### AAA cinematic style · Fire glow · Left gradient · Teal grade")
 st.markdown(
     '<div class="info-box">'
-    "📸 <b>Image</b> → Pillow pipeline → PNG download<br>"
-    "🎬 <b>Video</b> → FFmpeg pipeline → MP4 download<br>"
-    "Title splits automatically: last word becomes the <b>large line</b>, rest is the small line above it.<br>"
-    "e.g. <i>\"Your Text\"</i> → small <i>\"YOUR\"</i> + massive <i>\"TEXT\"</i>"
+    "📸 **Image** → Pillow (PNG) &nbsp;&nbsp;|&nbsp;&nbsp; 🎬 **Video** → FFmpeg (MP4)<br>"
+    "Title splits automatically: last word = large line, rest = small line above.<br>"
+    "For the first run the app downloads the selected Google Font – subsequent runs are instant."
     "</div>",
     unsafe_allow_html=True,
 )
@@ -577,22 +712,20 @@ system_font = find_system_font()
 
 c1, c2 = st.columns(2)
 with c1:
-    color = "#4caf50" if ffmpeg_ok else "#f44336"
-    label = "✅ FFmpeg ready" if ffmpeg_ok else "❌ FFmpeg missing"
-    st.markdown(f'<span style="font-family:monospace;font-size:0.82rem;color:{color}">{label}</span>',
-                unsafe_allow_html=True)
+    col = "#4caf50" if ffmpeg_ok else "#f44336"
+    lbl = "✅ FFmpeg ready" if ffmpeg_ok else "❌ FFmpeg missing"
+    st.markdown(f'<span style="font-family:monospace;font-size:0.82rem;color:{col}">{lbl}</span>', unsafe_allow_html=True)
 with c2:
-    color = "#4caf50" if system_font else "#f0a030"
-    label = "✅ System font" if system_font else "⚠ No system font"
-    st.markdown(f'<span style="font-family:monospace;font-size:0.82rem;color:{color}">{label}</span>',
-                unsafe_allow_html=True)
+    col = "#4caf50" if system_font else "#f0a030"
+    lbl = "✅ System font" if system_font else "⚠ No system font"
+    st.markdown(f'<span style="font-family:monospace;font-size:0.82rem;color:{col}">{lbl}</span>', unsafe_allow_html=True)
 
 st.divider()
 
 uploaded = st.file_uploader(
     "Upload a video or image",
-    type=["mp4", "mov", "avi", "mkv", "webm", "jpg", "jpeg", "png", "bmp", "webp"],
-    help="Image → PNG via Pillow  |  Video → MP4 via FFmpeg",
+    type=["mp4","mov","avi","mkv","webm","jpg","jpeg","png","bmp","webp"],
+    help="Image → PNG (Pillow)   |   Video → MP4 (FFmpeg)",
 )
 
 main_title = st.text_input(
@@ -612,7 +745,6 @@ col_a, col_b = st.columns(2)
 with col_a:
     font_choice  = st.selectbox("Font Style", list(FONT_STYLES.keys()))
 with col_b:
-    # Teal Cinematic becomes the default colour theme
     theme_choice = st.selectbox("Colour Theme", list(COLOR_THEMES.keys()), index=0)
 
 font_style  = FONT_STYLES[font_choice]
@@ -631,11 +763,11 @@ if generate_btn:
     suffix   = Path(uploaded.name).suffix.lower()
     is_image = suffix in IMAGE_EXTS
     raw      = uploaded.read()
-    safe     = "".join(c if c.isalnum() or c in "_-" else "_" for c in main_title.strip())
+    safe_name = "".join(c if c.isalnum() or c in "_-" else "_" for c in main_title.strip())
 
     # ── IMAGE ──────────────────────────────────────────────────────
     if is_image:
-        with st.spinner("🎨 Rendering…"):
+        with st.spinner("🎨 Rendering cinematic image…"):
             try:
                 png = process_image(
                     raw_bytes=raw,
@@ -647,12 +779,13 @@ if generate_btn:
                 )
             except Exception as exc:
                 st.error(f"Pillow error: {exc}")
+                traceback.print_exc()
                 st.stop()
 
         st.success("✅ Done!")
         st.image(png, use_container_width=True)
         st.download_button("⬇️  Download PNG", png,
-                           f"{safe}_loading_screen.png", "image/png",
+                           f"{safe_name}_loading_screen.png", "image/png",
                            use_container_width=True)
 
     # ── VIDEO ──────────────────────────────────────────────────────
@@ -662,11 +795,11 @@ if generate_btn:
             st.stop()
 
         with st.spinner("⬇️ Checking font…"):
-            dl = download_font(font_style["body_url"], font_style["body_file"])
+            dl = download_font(font_style["body_urls"], font_style["body_file"])
             ffmpeg_font = str(dl) if (dl and dl.exists()) else system_font
 
         if not ffmpeg_font:
-            st.error("No font available for FFmpeg text overlays.")
+            st.error("No font available for FFmpeg text overlays. Please upload a custom font or install DejaVu.")
             st.stop()
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -685,10 +818,13 @@ if generate_btn:
                 version_str=version_str.strip() or "v 20.26",
             )
 
+            # Print full command to console (for debugging)
+            print(" ".join(f'"{c}"' if " " in c else c for c in cmd))
+
             with st.expander("🔧 FFmpeg command"):
                 st.code(" \\\n  ".join(cmd), language="bash")
 
-            with st.spinner("🎬 Rendering video…"):
+            with st.spinner("🎬 Rendering cinematic video…"):
                 pbar = st.progress(0, text="Starting…")
                 try:
                     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -717,12 +853,13 @@ if generate_btn:
                     st.stop()
                 except Exception as exc:
                     st.error(f"Unexpected error: {exc}")
+                    traceback.print_exc()
                     st.stop()
 
             st.success("✅ Done!")
             st.video(mp4)
             st.download_button("⬇️  Download MP4", mp4,
-                               f"{safe}_loading_screen.mp4", "video/mp4",
+                               f"{safe_name}_loading_screen.mp4", "video/mp4",
                                use_container_width=True)
 
 st.divider()
@@ -731,4 +868,4 @@ st.markdown(
     "POWERED BY FFMPEG · PILLOW · STREAMLIT"
     "</p>",
     unsafe_allow_html=True,
-                            )
+                  )
