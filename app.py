@@ -6,7 +6,7 @@ Faithfully reproduces the cinematic game-menu aesthetic:
   - Title split across two lines (small line + massive line)
   - Center-aligned menu under the title
   - Pure vignette darkness — no sidebar rectangle
-  - Warm amber colour wash
+  - Subtle teal cinematic colour wash
   - Version number bottom-left
 Run:  streamlit run app.py
 """
@@ -135,17 +135,7 @@ FONT_STYLES = {
 }
 
 COLOR_THEMES = {
-    "Amber (Default — matches reference)": {
-        "wash": (40, 18, 0), "wash_str": 0.28,
-        "glow_layers": [
-            (255, 200,  60, 28, 220),   # bright yellow core
-            (255, 140,  20, 18, 160),   # orange mid
-            (180,  60,   0, 10, 100),   # deep red outer
-        ],
-        "title_color": (255, 245, 210),
-        "menu_color":  (230, 215, 185),
-    },
-    "Teal Cinematic": {
+    "Teal Cinematic (Cool)": {
         "wash": (0, 16, 38), "wash_str": 0.25,
         "glow_layers": [
             (100, 220, 255, 28, 220),
@@ -154,6 +144,16 @@ COLOR_THEMES = {
         ],
         "title_color": (210, 240, 255),
         "menu_color":  (180, 210, 235),
+    },
+    "Amber (Warm / Classic)": {
+        "wash": (40, 18, 0), "wash_str": 0.28,
+        "glow_layers": [
+            (255, 200,  60, 28, 220),   # bright yellow core
+            (255, 140,  20, 18, 160),   # orange mid
+            (180,  60,   0, 10, 100),   # deep red outer
+        ],
+        "title_color": (255, 245, 210),
+        "menu_color":  (230, 215, 185),
     },
     "Crimson Dark": {
         "wash": (42, 0, 0), "wash_str": 0.26,
@@ -276,10 +276,7 @@ def draw_fire_glow_text(
     """
     Draw text centered on cx, at y.
     Returns (updated_img, bottom_y_of_text).
-    Glow is built by stacking multiple blurred layers — mimics the
-    warm fire/ember glow seen in the reference image.
     """
-    # Measure text width to center
     dummy = ImageDraw.Draw(img)
     bbox  = dummy.textbbox((0, 0), text, font=font)
     tw    = bbox[2] - bbox[0]
@@ -292,7 +289,6 @@ def draw_fire_glow_text(
     for (gr, gg, gb, blur, alpha_max) in reversed(glow_layers):
         glow = Image.new("RGBA", base.size, (0, 0, 0, 0))
         gd   = ImageDraw.Draw(glow)
-        # Render at multiple offsets to thicken the glow source
         for ox in (-1, 0, 1):
             for oy in (-1, 0, 1):
                 gd.text((tx + ox, y + oy), text, font=font,
@@ -338,7 +334,7 @@ def draw_centered_text_plain(
 
 
 # ══════════════════════════════════════════════════════════════════
-#  IMAGE PIPELINE  (Pillow — matches reference screenshot)
+#  IMAGE PIPELINE  (Pillow — updated for better centering & spacing)
 # ══════════════════════════════════════════════════════════════════
 
 def process_image(
@@ -347,12 +343,11 @@ def process_image(
     subtitle: str,
     font_style: dict,
     theme: dict,
-    version_str: str = "v 1.0",
+    version_str: str = "v 20.26",
 ) -> bytes:
 
     # ── 1. Open & fill canvas ────────────────────────────────────
     src = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
-    # Scale to fill 1280×720, crop center (like CSS background-size:cover)
     src_ratio = src.width / src.height
     tgt_ratio = CANVAS_W / CANVAS_H
     if src_ratio > tgt_ratio:
@@ -367,22 +362,22 @@ def process_image(
     img  = src.crop((left, top, left + CANVAS_W, top + CANVAS_H))
 
     # ── 2. Colour grading ─────────────────────────────────────────
-    img = ImageEnhance.Brightness(img).enhance(0.72)   # darker base
+    img = ImageEnhance.Brightness(img).enhance(0.72)
     img = ImageEnhance.Contrast(img).enhance(1.30)
     img = ImageEnhance.Color(img).enhance(0.70)
 
-    # ── 3. Colour wash ────────────────────────────────────────────
+    # ── 3. Colour wash (teal/blue subtle tint by default) ─────────
     img = apply_color_wash(img, theme["wash"], theme["wash_str"])
 
-    # ── 4. Strong vignette (this IS the "sidebar" — natural darkness) ─
+    # ── 4. Strong vignette (natural darkness) ─────────────────────
     img = apply_vignette(img, strength=2.2)
 
     # ── 5. Load fonts ─────────────────────────────────────────────
     tf = download_font(font_style["title_url"], font_style["title_file"])
     bf = download_font(font_style["body_url"],  font_style["body_file"])
 
-    f_title_big  = pil_font(tf, 110)   # massive bottom line  e.g. "TEXT"
-    f_title_sm   = pil_font(tf,  54)   # smaller top line     e.g. "YOUR"
+    f_title_big  = pil_font(tf, 110)
+    f_title_sm   = pil_font(tf,  54)
     f_menu       = pil_font(bf,  30)
     f_version    = pil_font(bf,  18)
 
@@ -390,56 +385,59 @@ def process_image(
     title_color  = theme["title_color"]
     menu_color   = theme["menu_color"]
 
-    # ── 6. Title block — left-center area ─────────────────────────
-    # Horizontal center of text block: left quarter of image
-    text_cx = 195          # center x of title / menu column
-    title_y  = 310         # vertical start — roughly 43% down
+    # ── 6. Title block — centered at left quarter ──────────────────
+    TEXT_CX = 195          # horizontal center of the menu/title block
+    # Adjusted vertical start for better overall centering
+    title_y  = 280
 
-    # Split title: first word(s) small, rest big
     words = main_title.upper().split()
     if len(words) >= 2:
-        top_line = " ".join(words[:-1])    # "YOUR"
-        bot_line = words[-1]               # "TEXT"
+        top_line = " ".join(words[:-1])
+        bot_line = words[-1]
     else:
         top_line = ""
         bot_line = main_title.upper()
 
-    # Draw small top line (with glow)
     if top_line:
         img, after_top = draw_fire_glow_text(
-            img, top_line, text_cx, title_y,
+            img, top_line, TEXT_CX, title_y,
             f_title_sm, title_color, glow_layers
         )
         title_y = after_top + 2
     else:
-        pass  # skip
+        after_top = title_y
 
-    # Draw big bottom line (with glow)
     img, after_big = draw_fire_glow_text(
-        img, bot_line, text_cx, title_y,
+        img, bot_line, TEXT_CX, title_y,
         f_title_big, title_color, glow_layers
     )
 
-    # ── 7. Menu items — centered under title ──────────────────────
-    menu_items = ["New Game", "Continue", "Select Chapter", "Options", "Exit"]
-    menu_start = after_big + 28
-    row_h      = 44
+    # ── 7. Menu items — centered under title, with selection arrow ─
+    menu_items = [
+        "> New Game",          # arrow added
+        "Continue",
+        "Select Chapter",
+        "Options",
+        "Exit"
+    ]
+    menu_start = after_big + 32
+    row_h      = 50            # more spacing
 
     draw = ImageDraw.Draw(img)
     for i, item in enumerate(menu_items):
         my = menu_start + i * row_h
         draw_centered_text_plain(
-            draw, item, text_cx, my,
+            draw, item, TEXT_CX, my,
             f_menu, menu_color,
             shadow_color=(0, 0, 0),
             shadow_offset=2,
         )
 
-    # ── 8. Subtitle (optional) — small, below menu ────────────────
+    # ── 8. Subtitle (optional) ────────────────────────────────────
     if subtitle.strip():
         sub_y = menu_start + len(menu_items) * row_h + 14
         draw_centered_text_plain(
-            draw, subtitle, text_cx, sub_y,
+            draw, subtitle, TEXT_CX, sub_y,
             pil_font(bf, 22), (160, 150, 130),
         )
 
@@ -454,7 +452,7 @@ def process_image(
 
 
 # ══════════════════════════════════════════════════════════════════
-#  VIDEO PIPELINE  (FFmpeg)
+#  VIDEO PIPELINE  (FFmpeg — aligned with Pillow layout)
 # ══════════════════════════════════════════════════════════════════
 
 def build_ffmpeg_command(
@@ -478,6 +476,7 @@ def build_ffmpeg_command(
     bot_line = esc(words[-1] if words else "UNTITLED")
     shd      = "shadowcolor=black@0.80:shadowx=3:shadowy=3"
 
+    # Colour wash & vignette (from theme)
     wr, wg, wb = [round(c * theme["wash_str"]) for c in theme["wash"]]
     geq = (
         f"geq="
@@ -486,12 +485,20 @@ def build_ffmpeg_command(
         f"b='clip(b(X\\,Y)*0.72+{wb}\\,0\\,255)'"
     )
 
-    menu_items = ["New Game", "Continue", "Select Chapter", "Options", "Exit"]
-    text_cx    = 195
-    menu_y0    = 490
+    # Menu items with arrow
+    menu_items = [
+        "> New Game",
+        "Continue",
+        "Select Chapter",
+        "Options",
+        "Exit"
+    ]
+    TEXT_CX = 195                # pixel position (align with Pillow)
+    TITLE_Y = 280
+    ROW_H   = 50
+    MENU_Y0 = 490                # approximate after big title
 
     vf_parts = [
-        # Cover-scale: fill 1280×720, crop center
         "scale=1280:720:force_original_aspect_ratio=increase",
         "crop=1280:720",
         "eq=brightness=-0.28:contrast=1.30:saturation=0.70",
@@ -500,37 +507,36 @@ def build_ffmpeg_command(
         "noise=alls=6:allf=t+u",
     ]
 
-    # Glow illusion: render title 3× with decreasing blur shadow
-    title_y = 330
+    # Fire glow illusion (three passes)
     for blur_r, alpha in [(14, "0.55"), (8, "0.40"), (0, "1.00")]:
         fc = "white" if blur_r == 0 else f"#ffcc44@{alpha}"
         if top_line:
             vf_parts.append(
                 f"drawtext=fontfile='{font_path}':text='{top_line}'"
-                f":fontcolor={fc}:fontsize=54:x=(w/4)-text_w/2:y={title_y}"
+                f":fontcolor={fc}:fontsize=54:x={TEXT_CX}-tw/2:y={TITLE_Y}"
                 f":shadowcolor=black@0.80:shadowx={blur_r}:shadowy={blur_r}"
             )
         vf_parts.append(
             f"drawtext=fontfile='{font_path}':text='{bot_line}'"
-            f":fontcolor={fc}:fontsize=110:x=(w/4)-text_w/2:y={title_y + (58 if top_line else 0)}"
+            f":fontcolor={fc}:fontsize=110:x={TEXT_CX}-tw/2:y={TITLE_Y + (58 if top_line else 0)}"
             f":shadowcolor=black@0.80:shadowx={blur_r}:shadowy={blur_r}"
         )
 
-    # Menu items centered at x = w/4
+    # Menu items
     for i, item in enumerate(menu_items):
-        my = menu_y0 + i * 44
+        my = MENU_Y0 + i * ROW_H
         vf_parts.append(
             f"drawtext=fontfile='{font_path}':text='{esc(item)}'"
-            f":fontcolor=white@0.88:fontsize=30:x=(w/4)-text_w/2:y={my}:{shd}"
+            f":fontcolor=white@0.88:fontsize=30:x={TEXT_CX}-tw/2:y={my}:{shd}"
         )
 
     if subtitle.strip():
+        sub_y = MENU_Y0 + len(menu_items) * ROW_H + 14
         vf_parts.append(
             f"drawtext=fontfile='{font_path}':text='{esc(subtitle)}'"
-            f":fontcolor=white@0.60:fontsize=22:x=(w/4)-text_w/2:y={menu_y0 + len(menu_items)*44 + 14}:{shd}"
+            f":fontcolor=white@0.60:fontsize=22:x={TEXT_CX}-tw/2:y={sub_y}:{shd}"
         )
 
-    # Version
     vf_parts.append(
         f"drawtext=fontfile='{font_path}':text='{esc(version_str)}'"
         f":fontcolor=white@0.45:fontsize=18:x=36:y=h-38:{shd}"
@@ -555,10 +561,10 @@ def build_ffmpeg_command(
 #  STREAMLIT UI
 # ══════════════════════════════════════════════════════════════════
 st.markdown("# ⚔ Game Loading Screen Generator")
-st.markdown("### Golden fire glow · Cinematic vignette · Cover-fill layout")
+st.markdown("### Cinematic vignette · Fire glow · Centered menu · Teal wash")
 st.markdown(
     '<div class="info-box">'
-    "📸 <b>Image</b> → Pillow pipeline → PNG download (matches reference aesthetic)<br>"
+    "📸 <b>Image</b> → Pillow pipeline → PNG download<br>"
     "🎬 <b>Video</b> → FFmpeg pipeline → MP4 download<br>"
     "Title splits automatically: last word becomes the <b>large line</b>, rest is the small line above it.<br>"
     "e.g. <i>\"Your Text\"</i> → small <i>\"YOUR\"</i> + massive <i>\"TEXT\"</i>"
@@ -600,13 +606,14 @@ subtitle = st.text_input(
     placeholder="A new adventure awaits…",
     max_chars=60,
 )
-version_str = st.text_input("Version String", value="v 1.0", max_chars=20)
+version_str = st.text_input("Version String", value="v 20.26", max_chars=20)
 
 col_a, col_b = st.columns(2)
 with col_a:
     font_choice  = st.selectbox("Font Style", list(FONT_STYLES.keys()))
 with col_b:
-    theme_choice = st.selectbox("Colour Theme", list(COLOR_THEMES.keys()))
+    # Teal Cinematic becomes the default colour theme
+    theme_choice = st.selectbox("Colour Theme", list(COLOR_THEMES.keys()), index=0)
 
 font_style  = FONT_STYLES[font_choice]
 color_theme = COLOR_THEMES[theme_choice]
@@ -636,7 +643,7 @@ if generate_btn:
                     subtitle=subtitle.strip(),
                     font_style=font_style,
                     theme=color_theme,
-                    version_str=version_str.strip() or "v 1.0",
+                    version_str=version_str.strip() or "v 20.26",
                 )
             except Exception as exc:
                 st.error(f"Pillow error: {exc}")
@@ -675,7 +682,7 @@ if generate_btn:
                 subtitle=subtitle.strip(),
                 font_path=ffmpeg_font,
                 theme=color_theme,
-                version_str=version_str.strip() or "v 1.0",
+                version_str=version_str.strip() or "v 20.26",
             )
 
             with st.expander("🔧 FFmpeg command"):
@@ -724,4 +731,4 @@ st.markdown(
     "POWERED BY FFMPEG · PILLOW · STREAMLIT"
     "</p>",
     unsafe_allow_html=True,
-)
+                            )
