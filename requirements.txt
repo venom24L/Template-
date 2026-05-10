@@ -1,9 +1,0 @@
-# Python dependencies — Video Game Loading Screen Generator v2.0
-streamlit>=1.35.0
-Pillow>=10.0.0
-requests>=2.31.0
-
-# FFmpeg must be installed at the OS level.
-# On Streamlit Cloud, add a packages.txt file containing:
-#   ffmpeg
-#   fonts-dejavu-core
