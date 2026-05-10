@@ -1,0 +1,9 @@
+# Python dependencies for Video Game Loading Screen Generator
+# All heavy lifting (FFmpeg) is done via subprocess — no Python video libs needed.
+
+streamlit>=1.35.0
+
+# FFmpeg must be installed separately in the OS environment.
+# On Streamlit Cloud, add a packages.txt file with:
+#   ffmpeg
+#   fonts-dejavu-core
