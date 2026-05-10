@@ -1,0 +1,22 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# AAA Game Loading Screen Generator — Python dependencies
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Web framework
+streamlit>=1.35.0
+
+# Image processing
+Pillow>=10.3.0
+
+# Numeric helpers (used for vignette / gradient pixel math)
+numpy>=1.26.0
+
+# HTTP client (Cinzel font download from Google Fonts)
+requests>=2.31.0
+
+# FFmpeg is a system dependency — install separately:
+#   Linux / Streamlit Cloud:  sudo apt-get install -y ffmpeg
+#   macOS:                    brew install ffmpeg
+#   Windows:                  choco install ffmpeg
+#
+# No pip package is needed; the app calls `ffmpeg` / `ffprobe` via subprocess.
