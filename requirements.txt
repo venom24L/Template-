@@ -1,22 +1,21 @@
-# ─────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
 # AAA Game Loading Screen Generator — Python dependencies
-# ─────────────────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
 
-# Web framework
 streamlit>=1.35.0
-
-# Image processing
 Pillow>=10.3.0
-
-# Numeric helpers (used for vignette / gradient pixel math)
 numpy>=1.26.0
-
-# HTTP client (Cinzel font download from Google Fonts)
 requests>=2.31.0
 
-# FFmpeg is a system dependency — install separately:
-#   Linux / Streamlit Cloud:  sudo apt-get install -y ffmpeg
-#   macOS:                    brew install ffmpeg
-#   Windows:                  choco install ffmpeg
+# ── System dependency (NOT a pip package) ─────────────────────────────────────
+# FFmpeg must be installed at the OS level:
 #
-# No pip package is needed; the app calls `ffmpeg` / `ffprobe` via subprocess.
+#   Streamlit Cloud → create a file called  packages.txt  in your repo root
+#                     containing a single line:  ffmpeg
+#
+#   Linux (local)   → sudo apt-get install -y ffmpeg
+#   macOS (local)   → brew install ffmpeg
+#   Windows (local) → choco install ffmpeg
+#                     or download from https://ffmpeg.org/download.html
+#
+# The app gracefully shows an install hint if ffmpeg is not found.
