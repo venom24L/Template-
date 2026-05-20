@@ -1,0 +1,1808 @@
+
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>For My Flower</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=IM+Fell+English:ital@1&family=Pinyon+Script&display=swap" rel="stylesheet">
+    <!-- CSS Dependencies -->
+    <style>
+        :root {
+            --black: #0d0a12;
+            --white: #f5f2eb;
+            --gold: #d4af37;
+            --gold-rgb: 212, 175, 55;
+            --accent: #a06090;
+            --bg-gradient: radial-gradient(circle at 50% 50%, #20162b 0%, #0d0a12 100%);
+            --font-serif: 'Cormorant Garamond', serif;
+            --font-italic: 'IM Fell English', serif;
+            --font-script: 'Pinyon Script', cursive;
+            --transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .mood-rose {
+            --black: #1a1216;
+            --white: #fcf7f9;
+            --gold: #dfb0bd;
+            --gold-rgb: 223, 176, 189;
+            --accent: #8b4a6e;
+            --bg-gradient: radial-gradient(circle at 50% 50%, #3a222e 0%, #1a1216 100%);
+        }
+
+        .mood-ivory {
+            --black: #f4efe2;
+            --white: #2c2519;
+            --gold: #b38f43;
+            --gold-rgb: 179, 143, 67;
+            --accent: #7d5c36;
+            --bg-gradient: radial-gradient(circle at 50% 50%, #fcf9f2 0%, #eaddc5 100%);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--black);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--gold);
+            border-radius: 3px;
+        }
+
+        body {
+            background-color: var(--black);
+            color: var(--white);
+            font-family: var(--font-serif);
+            overflow-x: hidden;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        /* SVG Noise Texture Overlay */
+        .noise-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 999;
+            opacity: 0.04;
+            pointer-events: none;
+        }
+
+        /* Background Transition Overlay */
+        #mood-crossfade {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .hero-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-gradient);
+            z-index: -2;
+            transform-origin: center center;
+        }
+
+        @keyframes breathe {
+            0% { transform: scale(1); opacity: 0.95; }
+            50% { transform: scale(1.06); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.95; }
+        }
+
+        .hero-breathe {
+            animation: breathe 8s ease-in-out infinite;
+        }
+
+        /* Canvases */
+        #petal-canvas, #weather-canvas, #wx-rain-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        #petal-canvas { z-index: 1; }
+        #weather-canvas, #wx-rain-canvas { z-index: 0; }
+
+        #wx-fog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.03);
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 2s ease;
+        }
+
+        /* Preloader */
+        #preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0d0a12;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .flower-icon {
+            font-size: 3rem;
+            color: var(--gold);
+            animation: pulseGlow 2s ease-in-out infinite;
+        }
+
+        .loader-text {
+            font-size: clamp(1rem, 2vw, 1.3rem);
+            letter-spacing: 3px;
+            color: var(--white);
+            font-weight: 300;
+            min-height: 2em;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 2px var(--gold)); }
+            50% { transform: scale(1.1); filter: drop-shadow(0 0 15px var(--gold)); }
+        }
+
+        /* Interface Controls */
+        .ui-control {
+            position: fixed;
+            z-index: 1000;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--gold);
+            font-family: var(--font-serif);
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            transition: var(--transition);
+            padding: 10px;
+        }
+        .ui-control:hover {
+            color: var(--white);
+            text-shadow: 0 0 8px var(--gold);
+        }
+
+        #lang-switch { top: 20px; left: 20px; }
+        #audio-toggle { top: 20px; right: 20px; font-size: 1.2rem; }
+        #weather-badge { bottom: 20px; left: 20px; font-size: 0.8rem; opacity: 0.7; pointer-events: none; }
+        
+        /* Mood Selector */
+        #mood-selector {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 12px;
+            z-index: 1000;
+        }
+        .mood-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid var(--gold);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .mood-dot:hover { transform: scale(1.3); }
+        .mood-dot[data-mood="midnight"] { background: #20162b; }
+        .mood-dot[data-mood="rose"] { background: #3a222e; }
+        .mood-dot[data-mood="ivory"] { background: #fcf9f2; }
+
+        /* Cursor Spark */
+        #cursor-spark {
+            position: fixed;
+            width: 4px;
+            height: 4px;
+            background: var(--gold);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 6px var(--gold);
+        }
+
+        /* Layout Architecture */
+        section {
+            position: relative;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 80px 20px;
+            z-index: 2;
+        }
+
+        /* Language Translation Hiding */
+        [lang="fa"] [data-en], [lang="en"] [data-fa] {
+            display: none !important;
+        }
+
+        /* Typography & Content elements */
+        .tagline {
+            font-size: clamp(0.8rem, 1.5vw, 1.1rem);
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            color: var(--gold);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .main-title {
+            font-family: var(--font-script);
+            font-size: clamp(3.5rem, 8vw, 7rem);
+            color: var(--white);
+            font-weight: 400;
+            text-align: center;
+            line-height: 1;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(var(--gold-rgb), 0.2);
+        }
+
+        .subtitle {
+            font-family: var(--font-serif);
+            font-style: italic;
+            font-size: clamp(1.1rem, 2.5vw, 1.8rem);
+            font-weight: 300;
+            text-align: center;
+            opacity: 0.8;
+            max-width: 600px;
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 40px;
+            font-size: 0.8rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--gold);
+            opacity: 0.6;
+        }
+
+        .chapter-divider {
+            font-family: var(--font-italic);
+            font-size: clamp(1.5rem, 3vw, 2.2rem);
+            color: var(--gold);
+            margin: 60px 0 40px 0;
+            text-align: center;
+            width: 100%;
+        }
+
+        .img-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            aspect-ratio: 2/3;
+            overflow: hidden;
+            border: 1px solid rgba(var(--gold-rgb), 0.3);
+            padding: 15px;
+            background: rgba(0,0,0,0.2);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            margin: 40px 0;
+        }
+
+        .img-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: grayscale(20%) sepia(10%);
+            transition: var(--transition);
+        }
+
+        .img-wrapper:hover img {
+            transform: scale(1.03);
+            filter: grayscale(0%) sepia(0%);
+        }
+
+        .quote-block {
+            font-family: var(--font-serif);
+            font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+            line-height: 1.6;
+            max-width: 700px;
+            text-align: center;
+            margin: 40px auto;
+            font-weight: 300;
+        }
+
+        /* Narrative Specifics */
+        .narrative-container {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 60px;
+        }
+
+        .bubble-wrap {
+            display: flex;
+            width: 100%;
+            margin: 20px 0;
+        }
+        .bubble-wrap.left { justify-content: flex-start; }
+        .bubble-wrap.right { justify-content: flex-end; }
+
+        .bubble {
+            background: rgba(var(--gold-rgb), 0.04);
+            border: 1px solid rgba(var(--gold-rgb), 0.2);
+            padding: 25px 35px;
+            border-radius: 2px;
+            max-width: 550px;
+            font-size: clamp(1.05rem, 2vw, 1.25rem);
+            line-height: 1.6;
+            position: relative;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+        }
+
+        /* Withered section style */
+        .withered-section {
+            background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.4), transparent);
+        }
+        .withered-section .img-wrapper {
+            filter: brightness(0.6) contrast(1.1);
+        }
+
+        /* Password and Secret Envelope Stage */
+        .lock-box {
+            text-align: center;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(var(--gold-rgb), 0.2);
+            padding: 50px 40px;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .lock-box h3 {
+            font-family: var(--font-italic);
+            color: var(--gold);
+            margin-bottom: 25px;
+            letter-spacing: 1px;
+        }
+
+        .pass-input-group {
+            display: flex;
+            border-bottom: 1px solid var(--gold);
+            margin-bottom: 20px;
+        }
+
+        .pass-input-group input {
+            background: transparent;
+            border: none;
+            color: var(--white);
+            padding: 10px;
+            width: 100%;
+            text-align: center;
+            font-family: var(--font-serif);
+            font-size: 1.2rem;
+            letter-spacing: 4px;
+        }
+        .pass-input-group input:focus { outline: none; }
+
+        .lock-box button, .sg-btn {
+            background: transparent;
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            padding: 12px 30px;
+            font-family: var(--font-serif);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: var(--transition);
+            width: 100%;
+        }
+        .lock-box button:hover, .sg-btn:hover {
+            background: var(--gold);
+            color: var(--black);
+        }
+
+        .error-msg {
+            color: #c94c4c;
+            font-size: 0.9rem;
+            margin-top: 15px;
+            min-height: 1.2em;
+            opacity: 0;
+        }
+
+        /* Envelope Module */
+        #envelope-stage {
+            display: none;
+            perspective: 1500px;
+            width: 100%;
+            max-width: 550px;
+            height: 400px;
+            position: relative;
+            margin: 20px auto;
+        }
+
+        #the-envelope {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            background: #2a2214;
+            border: 1px solid #4a3e25;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+        }
+
+        #env-flap {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 0;
+            border-left: 275px solid transparent;
+            border-right: 275px solid transparent;
+            border-top: 180px solid #3a301c;
+            transform-origin: top center;
+            z-index: 4;
+        }
+
+        .env-body {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 0;
+            border-left: 275px solid #231c10;
+            border-right: 275px solid #231c10;
+            border-bottom: 220px solid #1f190e;
+            z-index: 3;
+        }
+
+        .env-body::before {
+            content: '';
+            position: absolute;
+            bottom: -220px;
+            left: -275px;
+            width: 0;
+            height: 0;
+            border-left: 275px solid transparent;
+            border-right: 275px solid transparent;
+            border-bottom: 220px solid #282012;
+        }
+
+        #env-seal {
+            position: absolute;
+            top: 160px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 45px;
+            height: 45px;
+            background: var(--gold);
+            border-radius: 50%;
+            z-index: 5;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+
+        #the-letter {
+            position: absolute;
+            bottom: 10px;
+            left: 5%;
+            width: 90%;
+            height: 90%;
+            background: #fbf9f3;
+            color: #2b2416;
+            padding: 40px;
+            z-index: 2;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+            overflow: hidden;
+            transform: translateY(0);
+        }
+
+        /* Secret Reveal */
+        #secret-reveal {
+            display: none;
+            width: 100%;
+            max-width: 800px;
+            text-align: center;
+        }
+
+        .final-message {
+            font-family: var(--font-serif);
+            font-size: clamp(1.3rem, 3vw, 2.2rem);
+            line-height: 1.8;
+            margin-top: 40px;
+            min-height: 4em;
+            white-space: pre-line;
+            color: var(--white);
+            text-shadow: 0 0 10px rgba(var(--gold-rgb), 0.3);
+        }
+
+        /* Burst Petals */
+        .burst-petal {
+            position: fixed;
+            width: 12px;
+            height: 8px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* Sanctuary Workspace */
+        .sanctuary-frame {
+            border: 1px solid var(--gold);
+            padding: 20px;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            width: 100%;
+            max-width: 750px;
+            margin: 30px auto;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 5/3;
+            background: #fff;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        #sg-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: crosshair;
+        }
+
+        .art-tools {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 20px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .tool-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .color-swatch {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: var(--transition);
+        }
+        .color-swatch.active { border-color: var(--white); transform: scale(1.1); }
+
+        .sg-btn-sm {
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            border: 1px solid var(--gold);
+            background: transparent;
+            color: var(--gold);
+            cursor: pointer;
+            font-family: var(--font-serif);
+            text-transform: uppercase;
+        }
+        .sg-btn-sm.active, .sg-btn-sm:hover {
+            background: var(--gold);
+            color: var(--black);
+        }
+
+        .slider-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--gold);
+        }
+
+        .slider-wrap input {
+            accent-color: var(--gold);
+            cursor: pointer;
+        }
+
+        .meta-input-group {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            margin-top: 15px;
+        }
+        .meta-input-group input {
+            flex: 1;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(var(--gold-rgb), 0.4);
+            color: var(--white);
+            padding: 10px;
+            font-family: var(--font-serif);
+        }
+        .meta-input-group input:focus { outline: none; border-color: var(--gold); }
+
+        /* Gallery System Grid */
+        #gallery-display {
+            width: 100%;
+            max-width: 1100px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 25px;
+            margin-top: 50px;
+            min-height: 200px;
+            position: relative;
+        }
+
+        .gallery-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(var(--gold-rgb), 0.15);
+            padding: 12px;
+            position: relative;
+            transition: var(--transition);
+        }
+        .gallery-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--gold);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+        }
+
+        .gallery-card img {
+            width: 100%;
+            aspect-ratio: 5/3;
+            object-fit: cover;
+            border: 1px solid rgba(0,0,0,0.2);
+            background: #fff;
+        }
+
+        .gallery-meta {
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+        }
+
+        .author-name {
+            color: var(--white);
+            font-style: italic;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 80%;
+        }
+
+        .trash-btn {
+            background: transparent;
+            border: none;
+            color: #c94c4c;
+            cursor: pointer;
+            padding: 4px;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            opacity: 0.6;
+        }
+        .trash-btn:hover { opacity: 1; transform: scale(1.1); }
+
+        /* Statuses & Toasts */
+        .gallery-status {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 40px;
+            color: var(--gold);
+            font-style: italic;
+        }
+
+        .sg-toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(15, 10, 18, 0.95);
+            border: 1px solid var(--gold);
+            padding: 12px 30px;
+            color: var(--white);
+            z-index: 10000;
+            font-size: 0.95rem;
+            letter-spacing: 1px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            pointer-events: none;
+            opacity: 0;
+            transition: transform 0.4s ease, opacity 0.4s ease;
+        }
+        .sg-toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .dots-loader {
+            display: inline-flex;
+            gap: 4px;
+        }
+        .dots-loader span {
+            width: 6px;
+            height: 6px;
+            background: var(--gold);
+            border-radius: 50%;
+            animation: dotFlashing 1s infinite alternate;
+        }
+        .dots-loader span:nth-child(2) { animation-delay: 0.2s; }
+        .dots-loader span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes dotFlashing {
+            0% { opacity: 0.2; }
+            100% { opacity: 1; }
+        }
+
+        /* Footer Architecture */
+        footer {
+            border-top: 1px solid rgba(var(--gold-rgb), 0.2);
+            padding: 40px 20px;
+            text-align: center;
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--gold);
+            z-index: 2;
+            position: relative;
+        }
+
+        /* Responsive Breakpoints */
+        @media(max-width: 600px) {
+            .bubble-wrap { justify-content: center !important; }
+            .bubble { max-width: 100%; padding: 20px; }
+            .sanctuary-frame { padding: 10px; }
+            .art-tools { flex-direction: column; align-items: stretch; gap: 12px; }
+            .tool-row { justify-content: space-between; }
+            #envelope-stage { height: 300px; }
+            #env-flap { border-left-width: 150px; border-right-width: 150px; border-top-width: 100px; }
+            .env-body { border-left-width: 150px; border-right-width: 150px; border-bottom-width: 150px; }
+            .env-body::before { bottom: -150px; left: -150px; border-left-width: 150px; border-right-width: 150px; border-bottom-width: 150px; }
+            #env-seal { top: 90px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- SVG Noise Overlay -->
+    <svg class="noise-overlay" xmlns="http://www.w3.org/2000/svg">
+        <filter id="noise">
+            <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/>
+            <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.15 0"/>
+            <feComposite operator="in" in2="SourceGraphic"/>
+        </filter>
+        <rect width="100%" height="100%" filter="url(#noise)"/>
+    </svg>
+
+    <div class="hero-bg hero-breathe"></div>
+    <div id="mood-crossfade"></div>
+
+    <!-- Interactive Canvases -->
+    <canvas id="petal-canvas"></canvas>
+    <canvas id="weather-canvas"></canvas>
+    <canvas id="wx-rain-canvas"></canvas>
+    <div id="wx-fog"></div>
+
+    <!-- Preloader Node -->
+    <div id="preloader">
+        <div class="flower-icon">⚜️</div>
+        <div class="loader-text" id="loader-msg" data-en="Awakening the sanctuary..." data-fa="در حال بیدار کردن پناهگاه...">Awakening the sanctuary...</div>
+    </div>
+
+    <!-- UI Overlay Elements -->
+    <button class="ui-control" id="lang-switch">EN / FA</button>
+    <button class="ui-control" id="audio-toggle">♪</button>
+    <div id="weather-badge">System: Normal</div>
+
+    <div id="mood-selector">
+        <div class="mood-dot" data-mood="midnight" title="Midnight"></div>
+        <div class="mood-dot" data-mood="rose" title="Rose"></div>
+        <div class="mood-dot" data-mood="ivory" title="Ivory"></div>
+    </div>
+
+    <div id="cursor-spark"></div>
+
+    <!-- Core Layout Stream -->
+    <main>
+        <!-- Hero Scene -->
+        <section id="hero-section">
+            <div class="tagline" data-en="A Digital Conservatory" data-fa="یک گلخانه دیجیتال">A Digital Conservatory</div>
+            <h1 class="main-title" data-en="For My Flower" data-fa="برای گلم">For My Flower</h1>
+            <div class="subtitle" data-en="Where love details itself across ephemeral dimensions and static timelines." data-fa="جایی که عشق خود را در ابعاد زودگذر و خطوط زمانی ایستا نشان می‌دهد.">Where love details itself across ephemeral dimensions and static timelines.</div>
+            <div class="scroll-hint" data-en="Scroll to bloom" data-fa="برای شکوفایی ورق بزنید">Scroll to bloom</div>
+        </section>
+
+        <!-- Narrative Chapter I -->
+        <section id="chapter1">
+            <h2 class="chapter-divider" data-en="Chapter I — First Bloom" data-fa="فصل اول — اولین شکوفه">Chapter I — First Bloom</h2>
+            <div class="narrative-container">
+                <div class="img-wrapper">
+                    <img src="https://i.postimg.cc/ZYySc8cR/0b928bb8cbb832f28885c8d44476d970.jpg" alt="A delicate bloom catching initial light rays" loading="lazy">
+                </div>
+                <div class="bubble-wrap left">
+                    <div class="bubble" data-en="It began without announcement. A singular moment where space collapsed, and all paths focused inward toward a newly discovered center." data-fa="بدون هیچ اطلاعی شروع شد. لحظه‌ای یگانه که در آن فضا فروریخت و همه راه‌ها به سمت مرکزی تازه کشف‌شده متمرکز شدند.">
+                        It began without announcement. A singular moment where space collapsed, and all paths focused inward toward a newly discovered center.
+                    </div>
+                </div>
+                <div class="quote-block" data-en="To see you is to understand why nature expends such violent energy on architecture." data-fa="دیدن تو یعنی درک اینکه چرا طبیعت چنین انرژی شدیدی را صرف معماری می‌کند.">
+                    To see you is to understand why nature expends such violent energy on architecture.
+                </div>
+            </div>
+        </section>
+
+        <!-- Narrative Chapter II -->
+        <section id="chapter2">
+            <h2 class="chapter-divider" data-en="Chapter II — Embedded Roots" data-fa="فصل دوم — ریشه‌های عمیق">Chapter II — Embedded Roots</h2>
+            <div class="narrative-container">
+                <div class="img-wrapper" style="align-self: flex-end;">
+                    <img src="https://i.postimg.cc/v8nJ9QYk/73ee85dd4c728ae5900547406cf77dba.jpg" alt="Intertwined branches under a soft twilight" loading="lazy">
+                </div>
+                <div class="bubble-wrap right">
+                    <div class="bubble" data-en="Distance is merely an abstract variable when the foundation is anchored in shared quietude. Hours pass like seconds when looking at the same digital sky." data-fa="فاصله تنها یک متغیر انتزاعی است وقتی که بنیان در سکوتی مشترک لنگر انداخته باشد. ساعت‌ها مانند ثانیه‌ها می‌گذرند وقتی به همان آسمان دیجیتال نگاه می‌کنیم.">
+                        Distance is merely an abstract variable when the foundation is anchored in shared quietude. Hours pass like seconds when looking at the same digital sky.
+                    </div>
+                </div>
+                <div class="img-wrapper">
+                    <img src="https://i.postimg.cc/Px4npHnY/04f8c3938e89c4b21187c176d6498e04.jpg" alt="Soft light patterns highlighting texture maps" loading="lazy">
+                </div>
+            </div>
+        </section>
+
+        <!-- Narrative Chapter III -->
+        <section id="chapter3">
+            <h2 class="chapter-divider" data-en="Chapter III — The Symphony" data-fa="فصل سوم — سمفونی">Chapter III — The Symphony</h2>
+            <div class="narrative-container">
+                <div class="bubble-wrap left">
+                    <div class="bubble" data-en="Every conversation adds another line of code to this architecture. We build spaces out of sentences and shelter out of shared focus." data-fa="هر گفتگو خط دیگری از کد را به این معماری اضافه می‌کند. ما فضاها را از جملات و پناهگاه‌ها را از تمرکز مشترک می‌سازیم.">
+                        Every conversation adds another line of code to this architecture. We build spaces out of sentences and shelter out of shared focus.
+                    </div>
+                </div>
+                <div class="img-wrapper" style="align-self: center;">
+                    <img src="https://i.postimg.cc/jjGF3RBB/fdafb26af381f5c096463a954a050282.jpg" alt="Abstract synthesis of geometric botanical curves" loading="lazy">
+                </div>
+            </div>
+        </section>
+
+        <!-- Withered Flower Transition Segment -->
+        <section id="withered" class="withered-section">
+            <h2 class="chapter-divider" data-en="The Inevitable Shadow" data-fa="سایه اجتناب‌ناپذیر">The Inevitable Shadow</h2>
+            <div class="narrative-container">
+                <div class="img-wrapper" class="wf-img-wrapper" style="align-self: center;">
+                    <img src="https://i.postimg.cc/rpvhFrrT/589d37f66462530281dcb9018a23e287.jpg" alt="A single withered petal resting in darkness" loading="lazy">
+                </div>
+                <div class="quote-block wf-text-block" data-en="Even when the cycle ebbs, and the color retreats from the surface, the structure remains intact. Perfect, holding its truth within." data-fa="حتی زمانی که چرخه فروکش می‌کند و رنگ از سطح عقب می‌نشیند، ساختار دست‌نخورده باقی می‌ماند. کامل، حقیقت خود را در درون حفظ می‌کند.">
+                    Even when the cycle ebbs, and the color retreats from the surface, the structure remains intact. Perfect, holding its truth within.
+                </div>
+            </div>
+        </section>
+
+        <!-- Vault Lock & Vault Stage Gateway -->
+        <section id="secret-section">
+            <div class="lock-box">
+                <h3 data-en="Enter the Core Frequency" data-fa="فرکانس اصلی را وارد کنید">Enter the Core Frequency</h3>
+                <div class="pass-input-group">
+                    <input type="password" id="vault-pass" placeholder="••" maxlength="6">
+                </div>
+                <button id="vault-open-btn" data-en="Decrypt" data-fa="رمزگشایی">Decrypt</button>
+                <div class="error-msg" id="vault-err" data-en="Invalid configuration. Matrix denied." data-fa="پیکربندی نامعتبر است. دسترسی رد شد.">Invalid configuration. Matrix denied.</div>
+            </div>
+
+            <div id="envelope-stage">
+                <div id="the-envelope">
+                    <div id="env-flap"></div>
+                    <div id="env-seal">⚜️</div>
+                    <div class="env-body"></div>
+                    <div id="the-letter">
+                        <div style="font-family: var(--font-italic); margin-bottom:15px; font-size:1.1rem;">To My Sanctuary,</div>
+                        <div style="font-size:0.95rem; line-height:1.5;" data-en="Inside this secure parameter lies the raw truth of every sequence executed. Click the seal to unfurl the transmission." data-fa="در داخل این پارامتر امن، حقیقت خام هر توالی اجرا شده نهفته است. برای باز کردن ارسال، روی مهر کلیک کنید.">Inside this secure parameter lies the raw truth of every sequence executed. Click the seal to unfurl the transmission.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="secret-reveal">
+                <div class="img-wrapper" style="max-width:600px; margin: 0 auto; aspect-ratio: 16/10;">
+                    <img src="https://i.postimg.cc/jjGF3RBB/fdafb26af381f5c096463a954a050282.jpg" alt="Ultimate revelation render space" loading="lazy">
+                </div>
+                <div class="final-message" id="typewriter-target"></div>
+            </div>
+        </section>
+
+        <!-- Art Sanctuary Module -->
+        <section id="art-sanctuary">
+            <h2 class="chapter-divider" data-en="The Art Sanctuary" data-fa="پناهگاه هنر">The Art Sanctuary</h2>
+            <div class="subtitle" style="margin-bottom: 30px;" data-en="Leave your geometric residue or permanent signatures upon the canvas matrix." data-fa="بقایای هندسی یا امضاهای دائمی خود را روی ماتریس بوم باقی بگذارید.">Leave your geometric residue or permanent signatures upon the canvas matrix.</div>
+            
+            <div class="sanctuary-frame">
+                <div class="canvas-container">
+                    <canvas id="sg-canvas"></canvas>
+                </div>
+                
+                <div class="art-tools">
+                    <div class="tool-row">
+                        <div class="color-swatch active" data-color="#d4af37" style="background: #d4af37;"></div>
+                        <div class="color-swatch" data-color="#8b4a6e" style="background: #8b4a6e;"></div>
+                        <div class="color-swatch" data-color="#f5f2eb" style="background: #f5f2eb;"></div>
+                        <div class="color-swatch" data-color="#a06090" style="background: #a06090;"></div>
+                        <div class="color-swatch" data-color="#eaddc5" style="background: #eaddc5;"></div>
+                    </div>
+                    <div class="tool-row">
+                        <button class="sg-btn-sm active" id="tool-pen" data-en="Pen" data-fa="قلم">Pen</button>
+                        <button class="sg-btn-sm" id="tool-eraser" data-en="Eraser" data-fa="پاک‌کن">Eraser</button>
+                        <button class="sg-btn-sm" id="tool-clear" data-en="Clear" data-fa="پاک کردن">Clear</button>
+                    </div>
+                    <div class="tool-row">
+                        <div class="slider-wrap">
+                            <span data-en="Size:" data-fa="اندازه:">Size:</span>
+                            <input type="range" id="brush-size" min="1" max="10" value="3">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="meta-input-group">
+                    <input type="text" id="artist-name" placeholder="Anonymous Creator" maxlength="40">
+                    <button class="sg-btn-sm" id="gallery-save-btn" style="flex:0 0 auto;" data-en="Save Archive" data-fa="ذخیره آرشیو">Save Archive</button>
+                    <button class="sg-btn-sm" id="art-download-btn" style="flex:0 0 auto;" data-en="↓" data-fa="↓">↓</button>
+                </div>
+            </div>
+
+            <!-- Dynamic Gallery Display Stream -->
+            <div id="gallery-display">
+                <div class="gallery-status" id="gallery-loading">
+                    <div class="dots-loader"><span></span><span></span><span></span></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div>&copy; 2026 Architectural Archives — For My Flower</div>
+    </footer>
+
+    <div class="sg-toast" id="toast-element">Notification logged</div>
+
+    <!-- Script Platform Block -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <script>
+        // Execution Scope Boundary
+        document.addEventListener("DOMContentLoaded", () => {
+            gsap.registerPlugin(ScrollTrigger);
+
+            // Core Global States
+            let currentLang = "en";
+            let activeMood = "midnight";
+            let audioInitialized = false;
+            let audioPlaying = false;
+            let galleryLoadedOnce = false;
+            let mySavedArtIds = JSON.parse(localStorage.getItem("sg_my_ids") || "[]");
+
+            // Elements references
+            const preloader = document.getElementById("preloader");
+            const loaderMsg = document.getElementById("loader-msg");
+            const langSwitch = document.getElementById("lang-switch");
+            const audioToggle = document.getElementById("audio-toggle");
+            const weatherBadge = document.getElementById("weather-badge");
+            const cursorSpark = document.getElementById("cursor-spark");
+            const bodyNode = document.body;
+
+            // Supabase API Parameter definitions
+            const SUPABASE_URL = "https://wwjxqkarjfigbfftplff.supabase.co";
+            const SUPABASE_KEY = "sb_publishable_pmKdhacZgMv6LpLcU3t1Rw_TzHS0-Ua";
+
+            // Audio setup architecture
+            const bgAudio = new Audio();
+            bgAudio.src = "https://files.catbox.moe/8armdt.mp3";
+            bgAudio.loop = true;
+            bgAudio.volume = 0;
+
+            function initAudio() {
+                if (audioInitialized) return;
+                bgAudio.play().then(() => {
+                    gsap.to(bgAudio, { volume: 0.4, duration: 3 });
+                    audioPlaying = true;
+                    audioToggle.classList.add("playing");
+                    audioToggle.style.textShadow = "0 0 10px var(--gold)";
+                }).catch(() => {});
+                audioInitialized = true;
+            }
+
+            // Global trigger interface for initial touch
+            ['click', 'touchstart', 'scroll', 'keydown'].forEach(evt => {
+                document.addEventListener(evt, initAudio, { once: true });
+            });
+
+            audioToggle.addEventListener("click", (e) => {
+                e.stopPropagation();
+                if (!audioInitialized) {
+                    initAudio();
+                    return;
+                }
+                if (audioPlaying) {
+                    bgAudio.pause();
+                    audioPlaying = false;
+                    audioToggle.style.textShadow = "none";
+                } else {
+                    bgAudio.play();
+                    audioPlaying = true;
+                    audioToggle.style.textShadow = "0 0 10px var(--gold)";
+                }
+            });
+
+            // Language Setup Environment
+            function setLanguage(lang) {
+                currentLang = lang;
+                document.documentElement.setAttribute("lang", lang);
+                document.documentElement.setAttribute("dir", lang === "fa" ? "rtl" : "ltr");
+                
+                // Animation Stagger reflow protection
+                gsap.fromTo("[data-en], [data-fa]", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power1.out" });
+            }
+
+            // Auto Detect Routine
+            const userLocale = navigator.language || navigator.userLanguage;
+            if (userLocale.startsWith("fa")) {
+                setLanguage("fa");
+            } else {
+                setLanguage("en");
+            }
+
+            langSwitch.addEventListener("click", () => {
+                setLanguage(currentLang === "en" ? "fa" : "en");
+            });
+
+            // Preloader Routine Execution
+            setTimeout(() => {
+                loaderMsg.textContent = currentLang === "en" ? "Calibrating environmental maps..." : "در حال کالیبره کردن نقشه‌های محیطی...";
+            }, 1500);
+
+            setTimeout(() => {
+                loaderMsg.textContent = currentLang === "en" ? "Synchronizing structural matrices..." : "در حال همگام‌سازی ماتریس‌های ساختاری...";
+            }, 3000);
+
+            setTimeout(() => {
+                const tl = gsap.timeline({
+                    onComplete: () => {
+                        preloader.style.display = "none";
+                        triggerIntroAnimations();
+                    }
+                });
+                tl.to(preloader, { opacity: 0, y: -30, duration: 1, ease: "power2.inOut" });
+            }, 4500);
+
+            // Toast Management System
+            function showToast(msgEn, msgFa) {
+                const toast = document.getElementById("toast-element");
+                toast.textContent = currentLang === "en" ? msgEn : msgFa;
+                toast.classList.add("show");
+                setTimeout(() => {
+                    toast.classList.remove("show");
+                }, 4000);
+            }
+
+            // Mouse Spark Vector Node Tracker
+            window.addEventListener("mousemove", (e) => {
+                gsap.to(cursorSpark, { x: e.clientX, y: e.clientY, duration: 0.1, ease: "power1.out" });
+            });
+
+            // Falling Petals Particle Physics
+            const petalCanvas = document.getElementById("petal-canvas");
+            const pCtx = petalCanvas.getContext("2d");
+            let pWidth = petalCanvas.width = window.innerWidth;
+            let pHeight = petalCanvas.height = window.innerHeight;
+
+            const baseColors = ['#c9a84c','#e8d08a','#a06090','#d4b896','#8b4a6e','#e8b4d8'];
+            let currentPalette = [...baseColors];
+            let petalArray = [];
+
+            class Petal {
+                constructor() {
+                    this.reset();
+                    this.y = Math.random() * pHeight;
+                }
+                reset() {
+                    this.x = Math.random() * pWidth;
+                    this.y = -20;
+                    this.sizeX = Math.random() * 6 + 4;
+                    this.sizeY = Math.random() * 10 + 6;
+                    this.speedY = Math.random() * 1 + 0.8;
+                    this.speedX = Math.random() * 1 - 0.5;
+                    this.angle = Math.random() * Math.PI * 2;
+                    this.rotationSpeed = Math.random() * 0.02 - 0.01;
+                    this.color = currentPalette[Math.floor(Math.random() * currentPalette.length)];
+                }
+                update() {
+                    this.y += this.speedY;
+                    this.x += this.speedX + Math.sin(this.y / 30) * 0.3;
+                    this.angle += this.rotationSpeed;
+                    if (this.y > pHeight + 20 || this.x < -20 || this.x > pWidth + 20) {
+                        this.reset();
+                    }
+                }
+                draw() {
+                    pCtx.save();
+                    pCtx.translate(this.x, this.y);
+                    pCtx.rotate(this.angle);
+                    pCtx.fillStyle = this.color;
+                    pCtx.beginPath();
+                    pCtx.ellipse(0, 0, this.sizeX, this.sizeY, 0, 0, Math.PI * 2);
+                    pCtx.fill();
+                    pCtx.restore();
+                }
+            }
+
+            function initPetals() {
+                petalArray = [];
+                for(let i=0; i<60; i++) {
+                    petalArray.push(new Petal());
+                }
+            }
+            initPetals();
+
+            function animatePetals() {
+                pCtx.clearRect(0,0,pWidth,pHeight);
+                petalArray.forEach(p => {
+                    p.update();
+                    p.draw();
+                });
+                requestAnimationFrame(animatePetals);
+            }
+            animatePetals();
+
+            window.addEventListener("resize", () => {
+                pWidth = petalCanvas.width = window.innerWidth;
+                pHeight = petalCanvas.height = window.innerHeight;
+                initPetals();
+            });
+
+            // Lazy Dynamic Weather Engine Subsystem
+            function runWeatherEngine() {
+                const cachedWeather = localStorage.getItem("wx_mode");
+                const cachedTime = localStorage.getItem("wx_time");
+                const now = Date.now();
+
+                if (cachedWeather && cachedTime && (now - parseInt(cachedTime) < 20 * 60 * 1000)) {
+                    applyWeather(cachedWeather);
+                } else {
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            (pos) => {
+                                const lat = pos.coords.latitude;
+                                const lon = pos.coords.longitude;
+                                fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`)
+                                    .then(res => res.json())
+                                    .then(data => {
+                                        const code = data.current_weather.weathercode;
+                                        let detected = "clear";
+                                        if ([61,63,65,80,81,82].includes(code)) detected = "rain";
+                                        else if ([71,73,75,77,85,86].includes(code)) detected = "winter";
+                                        
+                                        localStorage.setItem("wx_mode", detected);
+                                        localStorage.setItem("wx_time", now.toString());
+                                        applyWeather(detected);
+                                    })
+                                    .catch(() => fallbackTimeWeather());
+                            },
+                            () => fallbackTimeWeather()
+                        );
+                    } else {
+                        fallbackTimeWeather();
+                    }
+                }
+            }
+
+            function fallbackTimeWeather() {
+                const hr = new Date().getHours();
+                if (hr >= 20 || hr < 6) {
+                    applyWeather("night");
+                } else {
+                    applyWeather("clear");
+                }
+            }
+
+            function applyWeather(mode) {
+                if (window.requestIdleCallback) {
+                    window.requestIdleCallback(() => executeWeatherRender(mode));
+                } else {
+                    executeWeatherRender(mode);
+                }
+            }
+
+            let weatherAnimId = null;
+            function executeWeatherRender(mode) {
+                const wCanvas = document.getElementById("weather-canvas");
+                const rCanvas = document.getElementById("wx-rain-canvas");
+                const fogNode = document.getElementById("wx-fog");
+                
+                const wCtx = wCanvas.getContext("2d");
+                const rCtx = rCanvas.getContext("2d");
+                
+                let wW = wCanvas.width = rCanvas.width = window.innerWidth;
+                let wH = wCanvas.height = rCanvas.height = window.innerHeight;
+
+                if (weatherAnimId) cancelAnimationFrame(weatherAnimId);
+                wCtx.clearRect(0,0,wW,wH);
+                rCtx.clearRect(0,0,wW,wH);
+                fogNode.style.opacity = "0";
+                currentPalette = [...baseColors];
+
+                if (mode === "night") {
+                    weatherBadge.textContent = "System: Night Mode Active";
+                    fogNode.style.opacity = "1";
+                    let stars = [];
+                    for(let i=0; i<40; i++) stars.push({x:Math.random()*wW, y:Math.random()*wH, r:Math.random()*1+0.5, o:Math.random()});
+                    
+                    function drawStars() {
+                        wCtx.clearRect(0,0,wW,wH);
+                        wCtx.fillStyle = "rgba(255,255,255,0.8)";
+                        stars.forEach(s => {
+                            s.o += Math.random()*0.02 - 0.01;
+                            if(s.o<0.2) s.o=0.2; if(s.o>1) s.o=1;
+                            wCtx.globalAlpha = s.o;
+                            wCtx.beginPath();
+                            wCtx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+                            wCtx.fill();
+                        });
+                        wCtx.globalAlpha = 1.0;
+                        weatherAnimId = requestAnimationFrame(drawStars);
+                    }
+                    drawStars();
+                } 
+                else if (mode === "rain") {
+                    weatherBadge.textContent = "System: Precipitation Stream";
+                    let drops = [];
+                    for(let i=0; i<60; i++) drops.push({x:Math.random()*wW, y:Math.random()*wH, l:Math.random()*15+10, v:Math.random()*4+4});
+                    
+                    function drawRain() {
+                        rCtx.clearRect(0,0,wW,wH);
+                        rCtx.strokeStyle = "rgba(212,175,55,0.18)";
+                        rCtx.lineWidth = 1;
+                        drops.forEach(d => {
+                            rCtx.beginPath();
+                            rCtx.moveTo(d.x, d.y);
+                            rCtx.lineTo(d.x - 2, d.y + d.l);
+                            rCtx.stroke();
+                            d.y += d.v;
+                            d.x -= 0.5;
+                            if(d.y > wH) { d.y = -20; d.x = Math.random()*wW; }
+                        });
+                        weatherAnimId = requestAnimationFrame(drawRain);
+                    }
+                    drawRain();
+                } 
+                else if (mode === "winter") {
+                    weatherBadge.textContent = "System: Cryo Field Enacted";
+                    currentPalette = ['#ddeeff', '#b0c4de', '#ffffff', '#e6f2ff', '#c2d6ed'];
+                    initPetals();
+                } 
+                else {
+                    weatherBadge.textContent = "System: Optimal Matrix";
+                }
+            }
+
+            runWeatherEngine();
+
+            // Mood Changer Cross-fade Core System
+            const moodDots = document.querySelectorAll(".mood-dot");
+            moodDots.forEach(dot => {
+                dot.addEventListener("click", (e) => {
+                    const selectedMood = e.target.getAttribute("data-mood");
+                    if (selectedMood === activeMood) return;
+                    
+                    const crossfade = document.getElementById("mood-crossfade");
+                    
+                    // Optimistic style lock capture
+                    bodyNode.classList.remove("mood-rose", "mood-ivory");
+                    if (selectedMood !== "midnight") {
+                        bodyNode.classList.add(`mood-${selectedMood}`);
+                    }
+                    
+                    const tempBg = getComputedStyle(bodyNode).getPropertyValue('--bg-gradient');
+                    crossfade.style.background = tempBg;
+                    
+                    gsap.fromTo(crossfade, { opacity: 0 }, { 
+                        opacity: 1, 
+                        duration: 0.8, 
+                        ease: "power2.out",
+                        onComplete: () => {
+                            activeMood = selectedMood;
+                            document.querySelector(".hero-bg").style.background = tempBg;
+                            crossfade.style.opacity = 0;
+                            initPetals();
+                            runWeatherEngine();
+                        }
+                    });
+                });
+            });
+
+            // Main View Scroll Animation Definitions
+            function triggerIntroAnimations() {
+                const introTl = gsap.timeline();
+                introTl.from("#hero-section .tagline", { opacity: 0, y: 15, duration: 0.8, ease: "power2.out" })
+                       .from("#hero-section .main-title", { opacity: 0, scale: 0.95, duration: 1.2, ease: "power3.out" }, "-=0.4")
+                       .from("#hero-section .subtitle", { opacity: 0, y: 10, duration: 0.8, ease: "power2.out" }, "-=0.6")
+                       .from("#hero-section .scroll-hint", { opacity: 0, duration: 0.5 }, "-=0.2");
+
+                // Spatial Scroll Trigger Configurations
+                gsap.utils.toArray("section:not(#hero-section)").forEach(sec => {
+                    const div = sec.querySelector(".chapter-divider");
+                    const wrapper = sec.querySelector(".img-wrapper");
+                    const bubbles = sec.querySelectorAll(".bubble-wrap");
+                    const quotes = sec.querySelectorAll(".quote-block");
+
+                    if(div) {
+                        gsap.from(div, {
+                            scrollTrigger: { trigger: div, start: "top 85%" },
+                            opacity: 0, y: 25, duration: 0.8, ease: "power2.out"
+                        });
+                    }
+
+                    if(wrapper && !wrapper.classList.contains("wf-img-wrapper")) {
+                        gsap.from(wrapper, {
+                            scrollTrigger: { trigger: wrapper, start: "top 80%" },
+                            opacity: 0, scale: 0.96, duration: 1, ease: "power2.out"
+                        });
+                    }
+
+                    bubbles.forEach(b => {
+                        const dir = b.classList.contains("left") ? -40 : 40;
+                        gsap.from(b.querySelector(".bubble"), {
+                            scrollTrigger: { trigger: b, start: "top 85%" },
+                            opacity: 0, x: dir, duration: 0.9, ease: "back.out(1.2)"
+                        });
+                    });
+
+                    quotes.forEach(q => {
+                        if (!q.classList.contains("wf-text-block")) {
+                            gsap.from(q, {
+                                scrollTrigger: { trigger: q, start: "top 85%" },
+                                opacity: 0, x: -30, duration: 0.8, ease: "power1.out"
+                            });
+                        }
+                    });
+                });
+
+                // Withered Animation Timelines
+                gsap.from(".withered-section .img-wrapper", {
+                    scrollTrigger: { trigger: ".withered-section", start: "top 75%" },
+                    opacity: 0, scale: 0.98, duration: 1.2, ease: "power2.out"
+                });
+
+                gsap.from(".wf-text-block", {
+                    scrollTrigger: { trigger: ".wf-text-block", start: "top 80%" },
+                    opacity: 0, y: 20, delay: 0.3, duration: 0.9, ease: "power2.out"
+                });
+
+                // Password Block Trigger Setup
+                gsap.from(".lock-box", {
+                    scrollTrigger: { trigger: "#secret-section", start: "top 70%" },
+                    opacity: 0, y: 30, duration: 0.8, ease: "power2.out"
+                });
+            }
+
+            // Burst Particle System Factory
+            function instantiatePetalBurst() {
+                const burstCount = 90;
+                const colors = ['#c9a84c','#e8d08a','#a06090','#d4b896','#8b4a6e','#e8b4d8'];
+                
+                for(let i=0; i<burstCount; i++) {
+                    const el = document.createElement("div");
+                    el.classList.add("burst-petal");
+                    el.style.background = colors[Math.floor(Math.random() * colors.length)];
+                    el.style.left = "50%";
+                    el.style.top = "50%";
+                    bodyNode.appendChild(el);
+
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = Math.random() * window.innerWidth * 0.7;
+                    const destX = Math.cos(angle) * radius;
+                    const destY = Math.sin(angle) * radius;
+
+                    gsap.to(el, {
+                        x: destX,
+                        y: destY,
+                        rotation: Math.random() * 720,
+                        opacity: 0,
+                        scale: Math.random() * 1.5 + 0.5,
+                        duration: Math.random() * 2 + 1.5,
+                        ease: "power3.out",
+                        onComplete: () => el.remove()
+                    });
+                }
+            }
+
+            // Cryptography Decryption and Envelope Orchestration
+            const opBtn = document.getElementById("vault-open-btn");
+            const passField = document.getElementById("vault-pass");
+            const errNode = document.getElementById("vault-err");
+            const lockContainer = document.querySelector(".lock-box");
+            const envelopeStage = document.getElementById("envelope-stage");
+            const realSeal = document.getElementById("env-seal");
+
+            opBtn.addEventListener("click", () => {
+                if (passField.value === "48") {
+                    gsap.to(lockContainer, { opacity: 0, y: -20, duration: 0.5, onComplete: () => {
+                        lockContainer.style.display = "none";
+                        executeEnvelopeIntro();
+                    }});
+                } else {
+                    errNode.style.opacity = "1";
+                    gsap.fromTo(lockContainer, { x: -10 }, { x: 10, duration: 0.1, repeat: 5, yoyo: true, onComplete: () => {
+                        lockContainer.style.transform = "translateX(0)";
+                    }});
+                    setTimeout(() => { errNode.style.opacity = "0"; }, 2800);
+                }
+            });
+
+            function executeEnvelopeIntro() {
+                envelopeStage.style.display = "block";
+                const tl = gsap.timeline();
+                tl.fromTo("#the-envelope", { opacity: 0, rotationY: -30, scale: 0.8 }, { opacity: 1, rotationY: 0, scale: 1, duration: 1.2, ease: "power3.out" });
+                
+                // Pulse loop declaration on structural element
+                gsap.fromTo(realSeal, { scale: 1 }, { scale: 1.15, repeat: -1, yoyo: true, duration: 0.8, ease: "sin.inOut" });
+            }
+
+            realSeal.addEventListener("click", () => {
+                gsap.killTweensOf(realSeal);
+                const stageTimeline = gsap.timeline();
+                
+                stageTimeline.to(realSeal, { opacity: 0, scale: 0, duration: 0.4 })
+                             .to("#env-flap", { rotationX: -185, duration: 0.8, ease: "power1.inOut" }, "-=0.1")
+                             .to("#the-letter", { 
+                                 y: "-68%", 
+                                 zIndex: 10,
+                                 duration: 1.2, 
+                                 ease: "power2.out",
+                                 onComplete: () => {
+                                     instantiatePetalBurst();
+                                 }
+                             }, "-=0.2")
+                             .to(envelopeStage, { 
+                                 opacity: 0, 
+                                 scale: 0.9, 
+                                 delay: 3.2, 
+                                 duration: 0.8, 
+                                 onComplete: () => {
+                                     envelopeStage.style.display = "none";
+                                     triggerUltimateSecret();
+                                 }
+                             });
+            });
+
+            function triggerUltimateSecret() {
+                const revealArea = document.getElementById("secret-reveal");
+                revealArea.style.display = "block";
+                instantiatePetalBurst();
+
+                gsap.fromTo(revealArea, { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 1, ease: "power2.out" });
+
+                const txtEn = "Even the chapters that make you shy,\nI love them because they are yours.";
+                const txtFa = "حتی فصل‌هایی که باعث خجالتت می‌شوند،\nمن دوستشان دارم چون مال تو هستند.";
+                const selectedText = currentLang === "en" ? txtEn : txtFa;
+                
+                const targetNode = document.getElementById("typewriter-target");
+                targetNode.textContent = "";
+                
+                let idx = 0;
+                function typeChar() {
+                    if (idx < selectedText.length) {
+                        targetNode.textContent += selectedText[idx];
+                        idx++;
+                        setTimeout(typeChar, 50);
+                    }
+                }
+                setTimeout(typeChar, 600);
+            }
+
+            // Sanctuary Drawing Architecture Workspace
+            const artCanvas = document.getElementById("sg-canvas");
+            const aCtx = artCanvas.getContext("2d");
+            let isDrawing = false;
+            let currentTool = "pen";
+            let currentBrushColor = "#d4af37";
+            let currentBrushSize = 3;
+
+            function resizeArtCanvas() {
+                const rect = artCanvas.parentElement.getBoundingClientRect();
+                artCanvas.width = rect.width;
+                artCanvas.height = rect.height;
+                aCtx.fillStyle = "#ffffff";
+                aCtx.fillRect(0, 0, artCanvas.width, artCanvas.height);
+                aCtx.lineCap = "round";
+                aCtx.lineJoin = "round";
+            }
+            resizeArtCanvas();
+            window.addEventListener("resize", resizeArtCanvas);
+
+            // Interface Control Synchronization Bindings
+            document.querySelectorAll(".color-swatch").forEach(s => {
+                s.addEventListener("click", (e) => {
+                    document.querySelectorAll(".color-swatch").forEach(sw => sw.classList.remove("active"));
+                    e.target.classList.add("active");
+                    currentBrushColor = e.target.getAttribute("data-color");
+                    currentTool = "pen";
+                    document.querySelectorAll(".art-tools .sg-btn-sm").forEach(b => b.classList.remove("active"));
+                    document.getElementById("tool-pen").classList.add("active");
+                });
+            });
+
+            document.getElementById("tool-pen").addEventListener("click", (e) => {
+                currentTool = "pen";
+                document.querySelectorAll(".art-tools .sg-btn-sm").forEach(b => b.classList.remove("active"));
+                e.target.classList.add("active");
+            });
+
+            document.getElementById("tool-eraser").addEventListener("click", (e) => {
+                currentTool = "eraser";
+                document.querySelectorAll(".art-tools .sg-btn-sm").forEach(b => b.classList.remove("active"));
+                e.target.classList.add("active");
+            });
+
+            document.getElementById("tool-clear").addEventListener("click", () => {
+                aCtx.fillStyle = "#ffffff";
+                aCtx.fillRect(0,0,artCanvas.width,artCanvas.height);
+            });
+
+            document.getElementById("brush-size").addEventListener("input", (e) => {
+                currentBrushSize = parseInt(e.target.value);
+            });
+
+            // Universal Vector Pointer Event Translation Layers
+            function getCanvasCoords(e) {
+                const rect = artCanvas.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return {
+                    x: clientX - rect.left,
+                    y: clientY - rect.top
+                };
+            }
+
+            function startDraw(e) {
+                if(e.target === artCanvas) {
+                    if(e.cancelable) e.preventDefault();
+                    isDrawing = true;
+                    const coords = getCanvasCoords(e);
+                    aCtx.beginPath();
+                    aCtx.moveTo(coords.x, coords.y);
+                }
+            }
+
+            function drawMove(e) {
+                if (!isDrawing) return;
+                if(e.cancelable) e.preventDefault();
+                const coords = getCanvasCoords(e);
+                
+                if (currentTool === "eraser") {
+                    aCtx.globalCompositeOperation = "destination-out";
+                    aCtx.lineWidth = currentBrushSize * 4;
+                } else {
+                    aCtx.globalCompositeOperation = "source-over";
+                    aCtx.strokeStyle = currentBrushColor;
+                    aCtx.lineWidth = currentBrushSize;
+                }
+                
+                aCtx.lineTo(coords.x, coords.y);
+                aCtx.stroke();
+            }
+
+            function endDraw() {
+                isDrawing = false;
+                aCtx.globalCompositeOperation = "source-over";
+            }
+
+            artCanvas.addEventListener("mousedown", startDraw);
+            artCanvas.addEventListener("mousemove", drawMove);
+            window.addEventListener("mouseup", endDraw);
+
+            artCanvas.addEventListener("touchstart", startDraw, { passive: false });
+            artCanvas.addEventListener("touchmove", drawMove, { passive: false });
+            window.addEventListener("touchend", endDraw);
+
+            // File Downloader Channel
+            document.getElementById("art-download-btn").addEventListener("click", () => {
+                const dataUrl = artCanvas.toDataURL("image/jpeg", 0.8);
+                const link = document.createElement("a");
+                link.download = "sanctuary-residue.jpg";
+                link.href = dataUrl;
+                link.click();
+            });
+
+            // Cloud Archive Datastructure Channel (Supabase API Client)
+            const saveBtn = document.getElementById("gallery-save-btn");
+            const artistInput = document.getElementById("artist-name");
+
+            saveBtn.addEventListener("click", () => {
+                let nameStr = artistInput.value.trim() || "Anonymous Creator";
+                if(nameStr.length > 40) nameStr = nameStr.substring(0,40);
+
+                saveBtn.disabled = true;
+                const originalText = saveBtn.textContent;
+                saveBtn.textContent = "...";
+
+                const compressedDataUrl = artCanvas.toDataURL("image/jpeg", 0.6);
+                const base64Clean = compressedDataUrl.split(',')[1];
+
+                fetch(`${SUPABASE_URL}/rest/v1/gallery`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify({
+                        name: nameStr,
+                        image_data: base64Clean
+                    })
+                })
+                .then(res => {
+                    if(!res.ok) throw new Error("Network response mismatch");
+                    return res.json();
+                })
+                .then(data => {
+                    if (data && data[0] && data[0].id) {
+                        mySavedArtIds.push(data[0].id);
+                        localStorage.setItem("sg_my_ids", JSON.stringify(mySavedArtIds));
+                    }
+                    showToast("Archive compiled successfully.", "آرشیو با موفقیت گردآوری شد.");
+                    reloadGallery();
+                })
+                .catch(() => {
+                    showToast("Transmission pipeline faulted.", "خطا در خط لوله انتقال داده.");
+                })
+                .finally(() => {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = originalText;
+                });
+            });
+
+            // Render Factory Segment
+            function reloadGallery() {
+                const targetDisplay = document.getElementById("gallery-display");
+                targetDisplay.innerHTML = '<div class="gallery-status"><div class="dots-loader"><span></span><span></span><span></span></div></div>';
+
+                fetch(`${SUPABASE_URL}/rest/v1/gallery?select=id,name,image_data,created_at&order=created_at.desc&limit=12`, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    }
+                })
+                .then(res => {
+                    if(!res.ok) throw new Error("Failed to pull archive stream.");
+                    return res.json();
+                })
+                .then(items => {
+                    targetDisplay.innerHTML = "";
+                    if (!items || items.length === 0) {
+                        targetDisplay.innerHTML = '<div class="gallery-status" data-en="Matrix empty. Awaiting records." data-fa="ماتریس خالی است. در انتظار ثبت داده‌ها.">Matrix empty. Awaiting records.</div>';
+                        return;
+                    }
+
+                    items.forEach(item => {
+                        const card = document.createElement("div");
+                        card.classList.add("gallery-card");
+                        card.setAttribute("data-id", item.id);
+
+                        const img = document.createElement("img");
+                        img.src = `data:image/jpeg;base64,${item.image_data}`;
+                        img.alt = "Canvas node recovery render";
+                        img.setAttribute("loading", "lazy");
+
+                        const meta = document.createElement("div");
+                        meta.classList.add("gallery-meta");
+
+                        const author = document.createElement("div");
+                        author.classList.add("author-name");
+                        author.textContent = item.name;
+
+                        meta.appendChild(author);
+
+                        if (mySavedArtIds.includes(item.id)) {
+                            const trash = document.createElement("button");
+                            trash.classList.add("trash-btn");
+                            trash.innerHTML = "✕";
+                            trash.addEventListener("click", () => deleteGalleryItem(item.id, card));
+                            meta.appendChild(trash);
+                        }
+
+                        card.appendChild(img);
+                        card.appendChild(meta);
+                        targetDisplay.appendChild(card);
+                    });
+                })
+                .catch(() => {
+                    targetDisplay.innerHTML = '<div class="gallery-status" data-en="Failed to sync network gallery." data-fa="خطا در همگام‌سازی گالری شبکه.">Failed to sync network gallery.</div>';
+                });
+            }
+
+            function deleteGalleryItem(id, cardElement) {
+                const tBtn = cardElement.querySelector(".trash-btn");
+                if(tBtn) tBtn.disabled = true;
+
+                // Optimistic Animation Elimination Trace
+                gsap.to(cardElement, {
+                    opacity: 0,
+                    scale: 0.9,
+                    duration: 0.4,
+                    onComplete: () => {
+                        cardElement.style.display = "none";
+                    }
+                });
+
+                fetch(`${SUPABASE_URL}/rest/v1/gallery?id=eq.${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'apikey': SUPABASE_KEY,
+                        'Authorization': `Bearer ${SUPABASE_KEY}`
+                    }
+                })
+                .then(res => {
+                    if(!res.ok) throw new Error("Delete action failed");
+                    mySavedArtIds = mySavedArtIds.filter(x => x !== id);
+                    localStorage.setItem("sg_my_ids", JSON.stringify(mySavedArtIds));
+                    showToast("Record purged.", "سند پاکسازی شد.");
+                })
+                .catch(() => {
+                    // Restructure element on validation fault
+                    cardElement.style.display = "block";
+                    gsap.to(cardElement, { opacity: 1, scale: 1, duration: 0.3 });
+                    if(tBtn) tBtn.disabled = false;
+                    showToast("Purge authority structural error.", "خطای ساختاری در مجوز پاکسازی.");
+                });
+            }
+
+            // Lazy Loading Execution Boundary Observer setup
+            ScrollTrigger.create({
+                trigger: "#art-sanctuary",
+                start: "top 90%",
+                once: true,
+                onEnter: () => {
+                    if(!galleryLoadedOnce) {
+                        reloadGallery();
+                        galleryLoadedOnce = true;
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
